@@ -1,0 +1,210 @@
+<Window x:Class="UL_project.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:UL_project"
+        mc:Ignorable="d"
+        Title="Lab Map Builder"
+        Height="820"
+        Width="1200"
+        MinHeight="700"
+        MinWidth="1000">
+        <Grid Background="#EDEBE4">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0"
+                Margin="20"
+                Padding="18"
+                Background="#1F2A44"
+                CornerRadius="18">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Map Tools"
+                               Foreground="White"
+                               FontSize="28"
+                               FontWeight="Bold"/>
+                    <TextBlock Margin="0,8,0,0"
+                               Text="Place mode allows seat creation, movement, and deletion. Edit mode allows property editing only."
+                               Foreground="#D7DCE8"
+                               FontSize="14"
+                               TextWrapping="Wrap"/>
+
+                    <TextBlock Margin="0,24,0,8"
+                               Text="Editor Mode"
+                               Foreground="White"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="PlaceModeButton"
+                                Width="86"
+                                Height="36"
+                                Margin="0,0,8,0"
+                                Content="Place"
+                                Click="PlaceModeButton_Click"/>
+                        <Button x:Name="EditModeButton"
+                                Width="86"
+                                Height="36"
+                                Content="Edit"
+                                Click="EditModeButton_Click"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="ModeDescriptionText"
+                               Margin="0,10,0,0"
+                               Foreground="#D7DCE8"
+                               FontSize="13"
+                               TextWrapping="Wrap"/>
+
+                    <TextBlock Margin="0,24,0,8"
+                               Text="Seat Palette"
+                               Foreground="White"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
+
+                    <Border x:Name="SeatTemplate"
+                            Width="180"
+                            Height="90"
+                            Padding="12"
+                            Background="#F6B73C"
+                            BorderBrush="#8F5A00"
+                            BorderThickness="2"
+                            CornerRadius="14"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="SeatTemplate_MouseLeftButtonDown">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Employee Seat"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#2B2112"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="Drag to map"
+                                       FontSize="12"
+                                       Foreground="#5C4622"
+                                       HorizontalAlignment="Center"/>
+                            </StackPanel>
+                    </Border>
+
+                    <Border x:Name="LackTemplate"
+                            Width="180"
+                            Height="90"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#C9D46A"
+                            BorderBrush="#6F7A1E"
+                            BorderThickness="2"
+                            CornerRadius="14"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="LackTemplate_MouseLeftButtonDown">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Lack"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#28310F"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="Long shelf"
+                                       FontSize="12"
+                                       Foreground="#4B561B"
+                                       HorizontalAlignment="Center"/>
+                            </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <Border x:Name="TrashDropZone"
+                        Grid.Row="1"
+                        Margin="0,18,0,0"
+                        Padding="12"
+                        Background="#4C566F"
+                        BorderBrush="#AAB3C5"
+                        BorderThickness="2"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock Text="Trash"
+                                   Foreground="White"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="TrashDescriptionText"
+                                   Margin="0,6,0,0"
+                                   Text="Drag a seat here in Place mode to delete it"
+                                   Foreground="#D7DCE8"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" Margin="0,20,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Margin="12,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Research Lab Layout"
+                           FontSize="30"
+                           FontWeight="Bold"
+                           Foreground="#24313F"
+                           VerticalAlignment="Center"/>
+
+                <Button x:Name="AddMapButton"
+                        Grid.Column="1"
+                        Width="38"
+                        Height="38"
+                        Margin="12,0,0,0"
+                        Content="+"
+                        FontSize="22"
+                        FontWeight="Bold"
+                        Background="#24313F"
+                        Foreground="White"
+                        BorderBrush="#24313F"
+                        Click="AddMapButton_Click"/>
+
+                <Button x:Name="RemoveMapButton"
+                        Grid.Column="2"
+                        Width="38"
+                        Height="38"
+                        Margin="8,0,0,0"
+                        Content="-"
+                        FontSize="22"
+                        FontWeight="Bold"
+                        Background="#8B2E2E"
+                        Foreground="White"
+                        BorderBrush="#8B2E2E"
+                        Click="RemoveMapButton_Click"/>
+            </Grid>
+
+            <WrapPanel x:Name="MapTabsPanel"
+                       Grid.Row="1"
+                       Margin="12,0,0,12"/>
+
+            <Border Grid.Row="2"
+                    Background="#F8F7F2"
+                    BorderBrush="#24313F"
+                    BorderThickness="3"
+                    CornerRadius="20"
+                    Padding="18">
+                <Grid x:Name="MapHost"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
