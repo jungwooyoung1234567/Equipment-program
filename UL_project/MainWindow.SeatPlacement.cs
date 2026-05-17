@@ -7,31 +7,31 @@ namespace UL_project
 {
     public partial class MainWindow
     {
-        // DragDrop ?곗씠???덉뿉??Seat ?쒗뵆由우쓣 援щ텇?섍린 ?꾪븳 ??
+        // DragDrop 데이터 안에서 Seat 템플릿을 구분하기 위한 키.
         private const string SeatDragFormat = "UL_project.SeatTemplate";
 
-        // DragDrop ?곗씠???덉뿉??Lack ?쒗뵆由우쓣 援щ텇?섍린 ?꾪븳 ??
+        // DragDrop 데이터 안에서 Lack 템플릿을 구분하기 위한 키.
         private const string LackDragFormat = "UL_project.LackTemplate";
 
-        // Seat 湲곕낯 ?ш린.
+        // Seat 기본 크기.
         private const double SeatWidth = 120;
         private const double SeatHeight = 70;
 
-        // Lack??Seat蹂대떎 媛濡쒓? 3諛?湲몃떎.
+        // Lack는 Seat보다 가로가 3배 길다.
         private const double LackWidth = SeatWidth * 3;
         private const double LackHeight = 70;
 
-        // ?꾩옱 留덉슦?ㅻ줈 ?뚭퀬 ?덈뒗 ?ㅼ젣 諛곗튂 ?꾩씠??
+        // 현재 마우스로 끌고 있는 실제 배치 아이템.
         private Border? _draggingSeat;
 
-        // ?꾩씠???대??먯꽌 ?대뵒瑜??≪븯?붿? ??ν빐???쒕옒洹????먰봽?섏? ?딄쾶 ?쒕떎.
+        // 아이템 내부에서 어디를 잡았는지 저장해서 드래그 시 점프하지 않게 한다.
         private Point _seatDragOffset;
 
-        // ??Seat/Lack ?대쫫???먮룞 利앷??쒗궎湲??꾪븳 移댁슫??
+        // 새 Seat/Lack 이름을 자동 증가시키기 위한 카운터.
         private int _seatCounter = 1;
         private int _lackCounter = 1;
 
-        // ?댁????됱긽??媛뺤“ ?됱긽.
+        // 휴지통 평상시/강조 색상.
         private static readonly Brush TrashNormalBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4C566F"));
         private static readonly Brush TrashHighlightBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C94C4C"));
         private static readonly Brush TrashNormalBorder = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAB3C5"));
@@ -39,13 +39,13 @@ namespace UL_project
 
         private void SeatTemplate_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Place 紐⑤뱶???뚮쭔 ??Seat瑜?留뚮뱾 ???덈떎.
+            // Place 모드일 때만 새 Seat를 만들 수 있다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // DragDrop ?곗씠?곗뿉 Seat ??낆씠?쇰뒗 ?뺣낫瑜??댁븘 ?뚭린 ?쒖옉?쒕떎.
+            // DragDrop 데이터에 Seat 타입이라는 정보를 담아 끌기 시작한다.
             var dragData = new DataObject();
             dragData.SetData(SeatDragFormat, "Employee Seat");
             DragDrop.DoDragDrop(SeatTemplate, dragData, DragDropEffects.Copy);
@@ -53,13 +53,13 @@ namespace UL_project
 
         private void LackTemplate_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Place 紐⑤뱶???뚮쭔 ??Lack瑜?留뚮뱾 ???덈떎.
+            // Place 모드일 때만 새 Lack를 만들 수 있다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // DragDrop ?곗씠?곗뿉 Lack ??낆씠?쇰뒗 ?뺣낫瑜??댁븘 ?뚭린 ?쒖옉?쒕떎.
+            // DragDrop 데이터에 Lack 타입이라는 정보를 담아 끌기 시작한다.
             var dragData = new DataObject();
             dragData.SetData(LackDragFormat, "Lack");
             DragDrop.DoDragDrop(LackTemplate, dragData, DragDropEffects.Copy);
@@ -67,7 +67,7 @@ namespace UL_project
 
         private void MapCanvas_DragOver(object sender, DragEventArgs e)
         {
-            // ?꾩옱 ?뚭퀬 ?덈뒗 ?곗씠?곌? Seat ?먮뒗 Lack???뚮쭔 ?쒕∼ 媛???쒖떆瑜?蹂댁뿬以??
+            // 현재 끌고 있는 데이터가 Seat 또는 Lack일 때만 드롭 가능 표시를 보여준다.
             e.Effects = _currentMode == EditorMode.Place && (e.Data.GetDataPresent(SeatDragFormat) || e.Data.GetDataPresent(LackDragFormat))
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
@@ -76,44 +76,44 @@ namespace UL_project
 
         private void MapCanvas_Drop(object sender, DragEventArgs e)
         {
-            // Edit 紐⑤뱶?먯꽌??留듭뿉 ???꾩씠?쒖쓣 ?볦쓣 ???녿떎.
+            // Edit 모드에서는 맵에 새 아이템을 놓을 수 없다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // ?쒕∼ ?대깽?멸? 諛쒖깮???ㅼ젣 留?Canvas? 洹??덉쓽 醫뚰몴瑜?援ы븳??
+            // 드롭 이벤트가 발생한 실제 맵 Canvas와 그 안의 좌표를 구한다.
             var mapCanvas = sender as Canvas ?? ActiveMapCanvas;
             var dropPoint = e.GetPosition(mapCanvas);
 
             if (e.Data.GetDataPresent(SeatDragFormat))
             {
-                // Seat ?쒗뵆由우씠?덈떎硫?Seat瑜??앹꽦?쒕떎.
+                // Seat 템플릿이었다면 Seat를 생성한다.
                 AddSeat(mapCanvas, dropPoint);
                 return;
             }
 
             if (e.Data.GetDataPresent(LackDragFormat))
             {
-                // Lack ?쒗뵆由우씠?덈떎硫?Lack瑜??앹꽦?쒕떎.
+                // Lack 템플릿이었다면 Lack를 생성한다.
                 AddLack(mapCanvas, dropPoint);
             }
         }
 
         private void AddSeat(Canvas mapCanvas, Point dropPoint)
         {
-            // ??Seat UI ?붿냼瑜?留뚮뱾怨??쒕∼??留듭뿉 異붽??쒕떎.
+            // 새 Seat UI 요소를 만들고 드롭된 맵에 추가한다.
             var seat = BuildSeatElement($"Seat {_seatCounter++}");
 
             mapCanvas.Children.Add(seat);
 
-            // ?쒕∼ 醫뚰몴瑜?以묒떖?쇰줈 ?꾩씠?쒖씠 諛곗튂?섎룄濡??꾩튂瑜?蹂댁젙?쒕떎.
+            // 드롭 좌표를 중심으로 아이템이 배치되도록 위치를 보정한다.
             SetSeatPosition(mapCanvas, seat, dropPoint.X - SeatWidth / 2, dropPoint.Y - SeatHeight / 2);
         }
 
         private void AddLack(Canvas mapCanvas, Point dropPoint)
         {
-            // ??Lack UI ?붿냼瑜?留뚮뱾怨??쒕∼??留듭뿉 異붽??쒕떎.
+            // 새 Lack UI 요소를 만들고 드롭된 맵에 추가한다.
             var lack = BuildLackElement($"Lack {_lackCounter++}");
 
             mapCanvas.Children.Add(lack);
@@ -122,13 +122,13 @@ namespace UL_project
 
         private Border BuildSeatElement(string title)
         {
-            // ?붾㈃??蹂댁씠??Seat? ?곌껐???곗씠??媛앹껜.
+            // 화면에 보이는 Seat와 연결될 데이터 객체.
             var seatInfo = new SeatInfo
             {
                 SeatName = title
             };
 
-            // Seat???명삎 Border瑜?留뚮뱺??
+            // Seat의 외형 Border를 만든다.
             var seat = new Border
             {
                 Width = SeatWidth,
@@ -141,7 +141,7 @@ namespace UL_project
                 Tag = seatInfo
             };
 
-            // Border ?덉뿉 ?대쫫/?뚯냽???몃줈濡??볦븘 蹂댁뿬以??
+            // Border 안에 이름/소속을 세로로 쌓아 보여준다.
             var content = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
@@ -166,7 +166,6 @@ namespace UL_project
             });
 
             seat.Child = content;
-            seat.ToolTip = "0 equipment item(s)";
             seat.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
             seat.MouseMove += Seat_MouseMove;
             seat.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
@@ -176,14 +175,14 @@ namespace UL_project
 
         private Border BuildLackElement(string title)
         {
-            // Lack???숈씪?섍쾶 ?곗씠??媛앹껜瑜?遺숈뿬 愿由ы븳??
+            // Lack도 동일하게 데이터 객체를 붙여 관리한다.
             var lackInfo = new SeatInfo
             {
                 SeatName = title,
                 TeamName = "Shelf"
             };
 
-            // Lack????湲멸퀬 ?ㅻⅨ ?됱긽?쇰줈 留뚮뱺??
+            // Lack는 더 길고 다른 색상으로 만든다.
             var lack = new Border
             {
                 Width = LackWidth,
@@ -196,7 +195,7 @@ namespace UL_project
                 Tag = lackInfo
             };
 
-            // Lack???대쫫怨?遺꾨쪟 ?띿뒪?몃? ?붾㈃???쒖떆?쒕떎.
+            // Lack도 이름과 분류 텍스트를 화면에 표시한다.
             var content = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
@@ -221,7 +220,6 @@ namespace UL_project
             });
 
             lack.Child = content;
-            lack.ToolTip = "0 equipment item(s)";
             lack.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
             lack.MouseMove += Seat_MouseMove;
             lack.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
@@ -231,7 +229,7 @@ namespace UL_project
 
         private void Seat_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // ?ㅼ젣 諛곗튂???꾩씠?쒕쭔 ?쒕옒洹??몄쭛 ??곸씠 ?쒕떎.
+            // 실제 배치된 아이템만 드래그/편집 대상이 된다.
             if (sender is not Border seat)
             {
                 return;
@@ -239,57 +237,62 @@ namespace UL_project
 
             if (_currentMode == EditorMode.Edit)
             {
-                OpenSeatEditor(seat);
+                // Edit 모드에서는 더블클릭 시 편집 창을 연다.
+                if (e.ClickCount == 2)
+                {
+                    OpenSeatEditor(seat);
+                }
+
                 return;
             }
 
-            // Place 紐⑤뱶?먯꽌???쒕옒洹몃? ?쒖옉?쒕떎.
+            // Place 모드에서는 드래그를 시작한다.
             _draggingSeat = seat;
             _seatDragOffset = e.GetPosition(seat);
             seat.CaptureMouse();
 
-            // ?뚭퀬 ?덈뒗 ?숈븞 媛???꾩뿉 蹂댁씠?꾨줉 ZIndex瑜??щ┛??
+            // 끌고 있는 동안 가장 위에 보이도록 ZIndex를 올린다.
             Panel.SetZIndex(seat, 1000);
         }
 
         private void Seat_MouseMove(object sender, MouseEventArgs e)
         {
-            // Place 紐⑤뱶 + 留덉슦???꾨쫫 + ?쒕옒洹???곸씠 ?덉쓣 ?뚮쭔 ?대룞?쒗궓??
+            // Place 모드 + 마우스 누름 + 드래그 대상이 있을 때만 이동시킨다.
             if (_currentMode != EditorMode.Place || _draggingSeat is null || e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
             }
 
-            // ?꾩옱 ?꾩씠?쒖씠 ?щ씪媛 ?덈뒗 留?Canvas瑜?李얜뒗??
+            // 현재 아이템이 올라가 있는 맵 Canvas를 찾는다.
             var seatCanvas = GetSeatCanvas(_draggingSeat);
             if (seatCanvas is null)
             {
                 return;
             }
 
-            // ?꾩옱 留덉슦??醫뚰몴??留욎떠 ?꾩씠???꾩튂瑜?媛깆떊?쒕떎.
+            // 현재 마우스 좌표에 맞춰 아이템 위치를 갱신한다.
             var position = e.GetPosition(seatCanvas);
             SetSeatPosition(seatCanvas, _draggingSeat, position.X - _seatDragOffset.X, position.Y - _seatDragOffset.Y);
 
-            // 留덉슦?ㅺ? ?댁????꾩씤吏 寃?ы빐 媛뺤“ ?곹깭瑜?諛붽씔??
+            // 마우스가 휴지통 위인지 검사해 강조 상태를 바꾼다.
             UpdateTrashDropZoneState(IsPointerOverTrash(e));
         }
 
         private void Seat_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            // ?쒕옒洹?以묒씠 ?꾨땲硫??꾨Т 寃껊룄 ?섏? ?딅뒗??
+            // 드래그 중이 아니면 아무 것도 하지 않는다.
             if (_draggingSeat is null)
             {
                 return;
             }
 
-            // Release ?꾩뿉 李몄“瑜??좎떆 蹂닿??대몦??
+            // Release 전에 참조를 잠시 보관해둔다.
             var seatToRelease = _draggingSeat;
 
-            // Place 紐⑤뱶?먯꽌 ?댁????꾩뿉 ?볦??붿? 癒쇱? ?먮떒?쒕떎.
+            // Place 모드에서 휴지통 위에 놓였는지 먼저 판단한다.
             var shouldDeleteSeat = _currentMode == EditorMode.Place && IsPointerOverTrash(e);
 
-            // ?쒕옒洹??곹깭瑜?醫낅즺?쒕떎.
+            // 드래그 상태를 종료한다.
             _draggingSeat.ReleaseMouseCapture();
             Panel.SetZIndex(seatToRelease, 0);
             _draggingSeat = null;
@@ -297,20 +300,20 @@ namespace UL_project
 
             if (shouldDeleteSeat)
             {
-                // ?댁????꾩??ㅻ㈃ ?꾩옱 留듭뿉???꾩씠?쒖쓣 ?쒓굅?쒕떎.
+                // 휴지통 위였다면 현재 맵에서 아이템을 제거한다.
                 GetSeatCanvas(seatToRelease)?.Children.Remove(seatToRelease);
             }
         }
 
         private void CancelSeatDrag()
         {
-            // ?쒕옒洹?以묒씤 ??ぉ???놁쑝硫??뺣━??寃껊룄 ?녿떎.
+            // 드래그 중인 항목이 없으면 정리할 것도 없다.
             if (_draggingSeat is null)
             {
                 return;
             }
 
-            // 留덉슦??罹≪쿂? 媛뺤“ ?곹깭瑜??뺣━???쒕옒洹몃? 媛뺤젣濡??앸궦??
+            // 마우스 캡처와 강조 상태를 정리해 드래그를 강제로 끝낸다.
             _draggingSeat.ReleaseMouseCapture();
             Panel.SetZIndex(_draggingSeat, 0);
             _draggingSeat = null;
@@ -319,7 +322,7 @@ namespace UL_project
 
         private void SetSeatPosition(Canvas mapCanvas, Border seat, double left, double top)
         {
-            // ?꾩씠?쒖씠 留?諛뽰쑝濡??섍?吏 ?딅룄濡?醫뚰몴瑜?寃쎄퀎 ?덉쑝濡??쒗븳?쒕떎.
+            // 아이템이 맵 밖으로 나가지 않도록 좌표를 경계 안으로 제한한다.
             var boundedLeft = Math.Max(0, Math.Min(mapCanvas.Width - seat.Width, left));
             var boundedTop = Math.Max(0, Math.Min(mapCanvas.Height - seat.Height, top));
 
@@ -329,33 +332,33 @@ namespace UL_project
 
         private static Canvas? GetSeatCanvas(Border seat)
         {
-            // ?꾩옱 ?꾩씠?쒖씠 ?대뒓 Canvas???ㅼ뼱?덈뒗吏 李얜뒗??
+            // 현재 아이템이 어느 Canvas에 들어있는지 찾는다.
             return seat.Parent as Canvas;
         }
 
         private bool IsPointerOverTrash(MouseEventArgs e)
         {
-            // ?ъ씤???꾩튂瑜?MainWindow 醫뚰몴怨?湲곗??쇰줈 援ы븳??
+            // 포인터 위치를 MainWindow 좌표계 기준으로 구한다.
             var pointerPosition = e.GetPosition(this);
 
-            // ?댁???Border???ㅼ젣 ?붾㈃ ?곸뿭??怨꾩궛?쒕떎.
+            // 휴지통 Border의 실제 화면 영역을 계산한다.
             var trashBounds = TrashDropZone.TransformToAncestor(this)
                 .TransformBounds(new Rect(0, 0, TrashDropZone.ActualWidth, TrashDropZone.ActualHeight));
 
-            // ?꾩옱 ?ъ씤?곌? ?댁????곸뿭 ?덉뿉 ?덈뒗吏 諛섑솚?쒕떎.
+            // 현재 포인터가 휴지통 영역 안에 있는지 반환한다.
             return trashBounds.Contains(pointerPosition);
         }
 
         private void UpdateTrashDropZoneState(bool isPointerOverTrash)
         {
-            // ?댁????꾩뿉 ?щ씪?붿쑝硫?媛뺤“ ?됱쑝濡? ?꾨땲硫?湲곕낯 ?됱쑝濡?蹂댁뿬以??
+            // 휴지통 위에 올라왔으면 강조 색으로, 아니면 기본 색으로 보여준다.
             TrashDropZone.Background = isPointerOverTrash ? TrashHighlightBackground : TrashNormalBackground;
             TrashDropZone.BorderBrush = isPointerOverTrash ? TrashHighlightBorder : TrashNormalBorder;
         }
 
         private void ResetTrashDropZoneAppearance()
         {
-            // ?쒕옒洹멸? ?앸굹硫??댁????됱쓣 ??긽 湲곕낯 ?곹깭濡??섎룎由곕떎.
+            // 드래그가 끝나면 휴지통 색을 항상 기본 상태로 되돌린다.
             TrashDropZone.Background = TrashNormalBackground;
             TrashDropZone.BorderBrush = TrashNormalBorder;
         }

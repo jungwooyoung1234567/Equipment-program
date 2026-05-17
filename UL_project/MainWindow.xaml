@@ -54,14 +54,8 @@
                         <Button x:Name="EditModeButton"
                                 Width="86"
                                 Height="36"
-                                Margin="0,0,8,0"
                                 Content="Edit"
                                 Click="EditModeButton_Click"/>
-                        <Button x:Name="FindEquipmentButton"
-                                Width="86"
-                                Height="36"
-                                Content="Find"
-                                Click="FindEquipmentButton_Click"/>
                     </StackPanel>
 
                     <TextBlock x:Name="ModeDescriptionText"

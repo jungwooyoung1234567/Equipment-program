@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -7,92 +5,37 @@ namespace UL_project
 {
     public partial class MainWindow
     {
-        private void FindEquipmentButton_Click(object sender, RoutedEventArgs e)
-        {
-            var searchIndex = BuildEquipmentSearchIndex();
-            if (searchIndex.Count == 0)
-            {
-                MessageBox.Show(
-                    "There is no equipment to search yet.",
-                    "Find Equipment",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var findWindow = new EquipmentFindWindow(searchIndex)
-            {
-                Owner = this
-            };
-
-            if (findWindow.ShowDialog() != true || findWindow.SelectedResult is null)
-            {
-                return;
-            }
-
-            NavigateToEquipment(findWindow.SelectedResult);
-        }
-
         private void OpenSeatEditor(Border seat)
         {
+            // 배치된 UI 요소의 Tag에서 실제 데이터 객체를 꺼낸다.
             if (seat.Tag is not SeatInfo seatInfo)
             {
                 return;
             }
 
-            var editorWindow = new SeatEditorWindow(seatInfo)
+            // 현재 값으로 편집 팝업을 연다.
+            var editorWindow = new SeatEditorWindow(seatInfo.SeatName, seatInfo.TeamName)
             {
                 Owner = this
             };
 
+            // 사용자가 저장하지 않고 닫으면 아무 것도 바꾸지 않는다.
             if (editorWindow.ShowDialog() != true)
             {
                 return;
             }
 
+            // 빈 이름 입력은 무시하고, 팀 정보는 입력값으로 갱신한다.
             seatInfo.SeatName = string.IsNullOrWhiteSpace(editorWindow.SeatName) ? seatInfo.SeatName : editorWindow.SeatName;
             seatInfo.TeamName = editorWindow.TeamName;
-            seatInfo.Equipments = editorWindow.Equipments;
 
+            // 수정된 데이터를 화면 텍스트에도 반영한다.
             UpdateSeatDisplay(seat, seatInfo);
-        }
-
-        private List<EquipmentSearchResult> BuildEquipmentSearchIndex()
-        {
-            var results = new List<EquipmentSearchResult>();
-
-            for (var mapIndex = 0; mapIndex < _mapCanvases.Count; mapIndex++)
-            {
-                var mapCanvas = _mapCanvases[mapIndex];
-                var seats = mapCanvas.Children.OfType<Border>();
-
-                foreach (var seat in seats)
-                {
-                    if (seat.Tag is not SeatInfo seatInfo)
-                    {
-                        continue;
-                    }
-
-                    foreach (var equipment in seatInfo.Equipments)
-                    {
-                        results.Add(new EquipmentSearchResult(mapIndex, seat, seatInfo, equipment));
-                    }
-                }
-            }
-
-            return results;
-        }
-
-        private void NavigateToEquipment(EquipmentSearchResult result)
-        {
-            CancelSeatDrag();
-            _activeMapIndex = result.MapIndex;
-            UpdateMapUi();
-            OpenSeatEditor(result.Seat);
         }
 
         private void UpdateSeatDisplay(Border seat, SeatInfo seatInfo)
         {
+            // Seat/Lack 내부에 넣어둔 StackPanel 구조를 다시 찾아온다.
             if (seat.Child is not StackPanel content || content.Children.Count < 2)
             {
                 return;
@@ -100,19 +43,15 @@ namespace UL_project
 
             if (content.Children[0] is TextBlock nameText)
             {
+                // 첫 번째 줄은 이름이다.
                 nameText.Text = seatInfo.SeatName;
             }
 
             if (content.Children[1] is TextBlock teamText)
             {
-                var teamLabel = string.IsNullOrWhiteSpace(seatInfo.TeamName) ? "Unassigned" : seatInfo.TeamName;
-                var equipmentCount = seatInfo.Equipments.Count;
-                teamText.Text = equipmentCount > 0
-                    ? $"{teamLabel} | Eq {equipmentCount}"
-                    : teamLabel;
+                // 두 번째 줄은 팀/분류이며, 비어 있으면 Unassigned로 보여준다.
+                teamText.Text = string.IsNullOrWhiteSpace(seatInfo.TeamName) ? "Unassigned" : seatInfo.TeamName;
             }
-
-            seat.ToolTip = $"{seatInfo.Equipments.Count} equipment item(s)";
         }
     }
 }
