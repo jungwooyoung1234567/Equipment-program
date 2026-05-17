@@ -7,30 +7,30 @@ namespace UL_project
 {
     public partial class MainWindow
     {
-        // 동시에 만들 수 있는 최대 맵 수.
+        // ?숈떆??留뚮뱾 ???덈뒗 理쒕? 留???
         private const int MaxMapCount = 10;
 
-        // 각 맵은 Canvas 하나로 관리한다.
+        // 媛?留듭? Canvas ?섎굹濡?愿由ы븳??
         private readonly List<Canvas> _mapCanvases = [];
 
-        // 현재 화면에 보여주는 맵의 인덱스.
+        // ?꾩옱 ?붾㈃??蹂댁뿬二쇰뒗 留듭쓽 ?몃뜳??
         private int _activeMapIndex;
 
-        // 현재 선택된 맵 Canvas를 빠르게 가져오기 위한 속성.
+        // ?꾩옱 ?좏깮??留?Canvas瑜?鍮좊Ⅴ寃?媛?몄삤湲??꾪븳 ?띿꽦.
         private Canvas ActiveMapCanvas => _mapCanvases[_activeMapIndex];
 
         private void AddMapButton_Click(object sender, RoutedEventArgs e)
         {
-            // 최대 개수에 도달했다면 새 맵을 만들지 않는다.
+            // 理쒕? 媛쒖닔???꾨떖?덈떎硫???留듭쓣 留뚮뱾吏 ?딅뒗??
             if (_mapCanvases.Count >= MaxMapCount)
             {
                 return;
             }
 
-            // 맵을 바꾸기 전에 진행 중이던 드래그를 정리한다.
+            // 留듭쓣 諛붽씀湲??꾩뿉 吏꾪뻾 以묒씠???쒕옒洹몃? ?뺣━?쒕떎.
             CancelSeatDrag();
 
-            // 새 맵을 만든 뒤 마지막 맵을 활성 맵으로 선택한다.
+            // ??留듭쓣 留뚮뱺 ??留덉?留?留듭쓣 ?쒖꽦 留듭쑝濡??좏깮?쒕떎.
             _mapCanvases.Add(CreateMapCanvas());
             _activeMapIndex = _mapCanvases.Count - 1;
             UpdateMapUi();
@@ -38,13 +38,24 @@ namespace UL_project
 
         private void RemoveMapButton_Click(object sender, RoutedEventArgs e)
         {
-            // 최소 1개의 맵은 항상 남겨둔다.
+            // 理쒖냼 1媛쒖쓽 留듭? ??긽 ?④꺼?붾떎.
             if (_mapCanvases.Count <= 1)
             {
                 return;
             }
 
-            // 현재 보고 있는 맵을 삭제하고, 유효한 인덱스로 다시 맞춘다.
+            var confirmationResult = MessageBox.Show(
+                $"Delete Map {_activeMapIndex + 1}? All seats on this map will be removed.",
+                "Delete Map",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirmationResult != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            // ?꾩옱 蹂닿퀬 ?덈뒗 留듭쓣 ??젣?섍퀬, ?좏슚???몃뜳?ㅻ줈 ?ㅼ떆 留욎텣??
             CancelSeatDrag();
             _mapCanvases.RemoveAt(_activeMapIndex);
             _activeMapIndex = Math.Min(_activeMapIndex, _mapCanvases.Count - 1);
@@ -53,13 +64,13 @@ namespace UL_project
 
         private void MapTabButton_Click(object sender, RoutedEventArgs e)
         {
-            // 버튼의 Tag에 저장해둔 맵 인덱스를 읽는다.
+            // 踰꾪듉??Tag????ν빐??留??몃뜳?ㅻ? ?쎈뒗??
             if (sender is not Button button || button.Tag is not int mapIndex)
             {
                 return;
             }
 
-            // 다른 맵으로 전환하기 전에 드래그 상태를 정리한다.
+            // ?ㅻⅨ 留듭쑝濡??꾪솚?섍린 ?꾩뿉 ?쒕옒洹??곹깭瑜??뺣━?쒕떎.
             CancelSeatDrag();
             _activeMapIndex = mapIndex;
             UpdateMapUi();
@@ -67,18 +78,18 @@ namespace UL_project
 
         private void UpdateMapUi()
         {
-            // 맵 표시 영역에는 항상 현재 활성 맵 1개만 보여준다.
+            // 留??쒖떆 ?곸뿭?먮뒗 ??긽 ?꾩옱 ?쒖꽦 留?1媛쒕쭔 蹂댁뿬以??
             MapHost.Children.Clear();
             MapHost.Children.Add(ActiveMapCanvas);
 
-            // 맵 탭도 현재 맵 개수에 맞게 전부 다시 그린다.
+            // 留???룄 ?꾩옱 留?媛쒖닔??留욊쾶 ?꾨? ?ㅼ떆 洹몃┛??
             MapTabsPanel.Children.Clear();
             for (var i = 0; i < _mapCanvases.Count; i++)
             {
                 MapTabsPanel.Children.Add(BuildMapTabButton(i));
             }
 
-            // 맵 개수에 따라 + / - 버튼 활성 여부를 조정한다.
+            // 留?媛쒖닔???곕씪 + / - 踰꾪듉 ?쒖꽦 ?щ?瑜?議곗젙?쒕떎.
             AddMapButton.IsEnabled = _mapCanvases.Count < MaxMapCount;
             AddMapButton.Opacity = AddMapButton.IsEnabled ? 1.0 : 0.5;
             RemoveMapButton.IsEnabled = _mapCanvases.Count > 1;
@@ -87,7 +98,7 @@ namespace UL_project
 
         private Button BuildMapTabButton(int mapIndex)
         {
-            // 활성 맵 탭만 진한 색으로 보여준다.
+            // ?쒖꽦 留???쭔 吏꾪븳 ?됱쑝濡?蹂댁뿬以??
             var isActive = mapIndex == _activeMapIndex;
             var button = new Button
             {
@@ -101,14 +112,14 @@ namespace UL_project
                 BorderBrush = Brushes.Transparent
             };
 
-            // 어떤 맵 버튼이 눌렸는지 구분하기 위해 공통 클릭 핸들러를 연결한다.
+            // ?대뼡 留?踰꾪듉???뚮졇?붿? 援щ텇?섍린 ?꾪빐 怨듯넻 ?대┃ ?몃뱾?щ? ?곌껐?쒕떎.
             button.Click += MapTabButton_Click;
             return button;
         }
 
         private Canvas CreateMapCanvas()
         {
-            // 새 맵은 동일한 크기와 배경 격자 패턴을 사용한다.
+            // ??留듭? ?숈씪???ш린? 諛곌꼍 寃⑹옄 ?⑦꽩???ъ슜?쒕떎.
             var mapCanvas = new Canvas
             {
                 Width = 740,
@@ -117,7 +128,7 @@ namespace UL_project
                 Background = BuildMapBackground()
             };
 
-            // 새로 만든 맵도 기존 맵과 같은 드롭 이벤트를 처리하도록 연결한다.
+            // ?덈줈 留뚮뱺 留듬룄 湲곗〈 留듦낵 媛숈? ?쒕∼ ?대깽?몃? 泥섎━?섎룄濡??곌껐?쒕떎.
             mapCanvas.DragOver += MapCanvas_DragOver;
             mapCanvas.Drop += MapCanvas_Drop;
             return mapCanvas;
@@ -125,7 +136,7 @@ namespace UL_project
 
         private static Brush BuildMapBackground()
         {
-            // DrawingBrush로 격자 배경을 직접 그린다.
+            // DrawingBrush濡?寃⑹옄 諛곌꼍??吏곸젒 洹몃┛??
             return new DrawingBrush
             {
                 TileMode = TileMode.Tile,
@@ -137,7 +148,7 @@ namespace UL_project
                     Pen = new Pen(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDD7C9")), 1),
                     Geometry = new GeometryGroup
                     {
-                        // 가로/세로 선 2개를 반복 타일로 사용해 모눈종이처럼 보이게 만든다.
+                        // 媛濡??몃줈 ??2媛쒕? 諛섎났 ??쇰줈 ?ъ슜??紐⑤늿醫낆씠泥섎읆 蹂댁씠寃?留뚮뱺??
                         Children =
                         {
                             new LineGeometry(new Point(0, 0), new Point(40, 0)),
