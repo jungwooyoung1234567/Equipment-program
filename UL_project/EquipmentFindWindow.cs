@@ -10,6 +10,7 @@ namespace UL_project
 {
     internal sealed class EquipmentFindWindow : Window
     {
+        // 이 대화상자는 미리 만들어 둔 장비 검색 인덱스를 화면에 보여준다.
         private readonly IReadOnlyList<EquipmentSearchResult> _searchIndex;
         private readonly TextBox _queryTextBox;
         private readonly StackPanel _resultsPanel;
@@ -17,6 +18,7 @@ namespace UL_project
 
         public EquipmentSearchResult? SelectedResult { get; private set; }
 
+        // 검색창 UI를 만들고 전달받은 검색 인덱스를 보관한다.
         public EquipmentFindWindow(IReadOnlyList<EquipmentSearchResult> searchIndex)
         {
             _searchIndex = searchIndex;
@@ -98,6 +100,7 @@ namespace UL_project
             Loaded += (_, _) => _queryTextBox.Focus();
         }
 
+        // 엔터 키 입력 시 현재 검색어로 검색을 실행한다.
         private void QueryTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter)
@@ -109,8 +112,10 @@ namespace UL_project
             e.Handled = true;
         }
 
+        // 검색어에 맞는 결과를 필터링해 결과 목록 패널을 다시 그린다.
         private void RenderSearchResults()
         {
+            // 검색은 이미 만들어 둔 인덱스를 기준으로 클라이언트 쪽에서 수행한다.
             _resultsPanel.Children.Clear();
 
             var query = _queryTextBox.Text.Trim();
@@ -129,7 +134,7 @@ namespace UL_project
 
             _statusText.Text = matches.Count == 0
                 ? "No matching equipment was found."
-                : $"{matches.Count} equipment item(s) found. Click a result to open its seat.";
+                : $"{matches.Count} equipment item(s) found. Click a result to move to its map and highlight the seat.";
 
             foreach (var match in matches)
             {
@@ -137,6 +142,7 @@ namespace UL_project
             }
         }
 
+        // 단일 검색 결과를 클릭 가능한 버튼 형태의 UI로 만든다.
         private Button BuildResultButton(EquipmentSearchResult result)
         {
             var button = new Button
@@ -177,6 +183,7 @@ namespace UL_project
             return button;
         }
 
+        // 사용자가 클릭한 검색 결과를 선택 결과로 저장하고 창을 닫는다.
         private void ResultButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button button || button.Tag is not EquipmentSearchResult result)
@@ -192,6 +199,7 @@ namespace UL_project
 
     internal sealed class EquipmentSearchResult
     {
+        // 검색 결과 하나를 만들고 표시용 문자열과 참조를 함께 보관한다.
         public EquipmentSearchResult(int mapIndex, Border seat, SeatInfo seatInfo, EquipmentInfo equipment)
         {
             MapIndex = mapIndex;
@@ -214,6 +222,7 @@ namespace UL_project
 
         public string GlobalNumber { get; }
 
+        // 현재 검색어가 이 결과와 일치하는지 판단한다.
         public bool IsMatch(string query)
         {
             return EquipmentName.Contains(query, StringComparison.OrdinalIgnoreCase) ||

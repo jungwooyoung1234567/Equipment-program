@@ -9,6 +9,7 @@ namespace UL_project
 {
     internal sealed class SeatEditorWindow : Window
     {
+        // 이 대화상자는 하나의 좌석 정보를 편집하고 저장 결과를 반환한다.
         private const int MaxEquipmentCount = 50;
 
         private readonly TextBox _nameTextBox;
@@ -27,6 +28,7 @@ namespace UL_project
                 .Select(item => item.ToEquipmentInfo())
                 .ToList();
 
+        // 편집창 UI를 만들고 기존 SeatInfo 데이터를 로드한다.
         public SeatEditorWindow(SeatInfo seatInfo)
         {
             Title = "Edit Place";
@@ -185,8 +187,10 @@ namespace UL_project
             UpdateEquipmentCount();
         }
 
+        // 장비 목록을 표시할 DataGrid를 생성한다.
         private DataGrid BuildEquipmentGrid()
         {
+            // 장비 테이블은 코드 안에서 직접 생성해 이 창 안에 로직을 모아둔다.
             var grid = new DataGrid
             {
                 AutoGenerateColumns = false,
@@ -226,6 +230,7 @@ namespace UL_project
             return grid;
         }
 
+        // 장비 입력 행을 하나 추가하고 새 행을 선택 상태로 만든다.
         private void AddEquipmentButton_Click(object? sender, RoutedEventArgs e)
         {
             if (_equipmentItems.Count >= MaxEquipmentCount)
@@ -245,6 +250,7 @@ namespace UL_project
             UpdateEquipmentCount();
         }
 
+        // 현재 선택된 장비 행을 목록에서 제거한다.
         private void RemoveSelectedButton_Click(object? sender, RoutedEventArgs e)
         {
             if (_equipmentGrid.SelectedItem is not EquipmentDraft selectedItem)
@@ -256,8 +262,10 @@ namespace UL_project
             UpdateEquipmentCount();
         }
 
+        // 편집 중인 셀 내용을 확정한 뒤 대화상자를 저장 상태로 닫는다.
         private void SaveButton_Click(object? sender, RoutedEventArgs e)
         {
+            // 그리드에 남아 있는 편집 중 값을 먼저 커밋한다.
             _equipmentGrid.CommitEdit();
             _equipmentGrid.CommitEdit(DataGridEditingUnit.Row, true);
 
@@ -265,6 +273,7 @@ namespace UL_project
             Close();
         }
 
+        // 현재 장비 행 수를 상단 카운트 문구에 반영한다.
         private void UpdateEquipmentCount()
         {
             _equipmentCountText.Text = $"Equipment: {_equipmentItems.Count}/{MaxEquipmentCount}";
@@ -272,6 +281,7 @@ namespace UL_project
 
         private sealed class EquipmentDraft
         {
+            // 빈 입력 행도 잠시 유지할 수 있도록 중간 편집용 구조를 사용한다.
             public string Name { get; set; } = string.Empty;
 
             public string UlNumber { get; set; } = string.Empty;
@@ -286,6 +296,7 @@ namespace UL_project
                 string.IsNullOrWhiteSpace(GlobalNumber) &&
                 string.IsNullOrWhiteSpace(Notes);
 
+            // 편집용 행 데이터를 실제 EquipmentInfo 객체로 변환한다.
             public EquipmentInfo ToEquipmentInfo()
             {
                 return new EquipmentInfo
@@ -297,6 +308,7 @@ namespace UL_project
                 };
             }
 
+            // 기존 EquipmentInfo를 편집용 행 데이터로 복사한다.
             public static EquipmentDraft FromEquipmentInfo(EquipmentInfo equipment)
             {
                 return new EquipmentDraft

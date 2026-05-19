@@ -12,8 +12,8 @@
         MinWidth="1000">
         <Grid Background="#EDEBE4">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*" MinWidth="360"/>
+            <ColumnDefinition Width="860"/>
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -21,19 +21,13 @@
                 Padding="18"
                 Background="#1F2A44"
                 CornerRadius="18">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
                 <StackPanel>
                     <TextBlock Text="Map Tools"
                                Foreground="White"
                                FontSize="28"
                                FontWeight="Bold"/>
                     <TextBlock Margin="0,8,0,0"
-                               Text="Place mode allows seat creation, movement, and deletion. Edit mode allows property editing only."
+                               Text="Place mode allows seat creation and movement. Click a placed item to open actions such as delete. Edit mode allows property editing only."
                                Foreground="#D7DCE8"
                                FontSize="14"
                                TextWrapping="Wrap"/>
@@ -124,32 +118,32 @@
                                        HorizontalAlignment="Center"/>
                             </StackPanel>
                     </Border>
-                </StackPanel>
 
-                <Border x:Name="TrashDropZone"
-                        Grid.Row="1"
-                        Margin="0,18,0,0"
-                        Padding="12"
-                        Background="#4C566F"
-                        BorderBrush="#AAB3C5"
-                        BorderThickness="2"
-                        CornerRadius="14">
-                    <StackPanel>
-                        <TextBlock Text="Trash"
-                                   Foreground="White"
-                                   FontSize="18"
-                                   FontWeight="Bold"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TrashDescriptionText"
-                                   Margin="0,6,0,0"
-                                   Text="Drag a seat here in Place mode to delete it"
-                                   Foreground="#D7DCE8"
-                                   FontSize="12"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
+                    <Border x:Name="CartTemplate"
+                            Width="180"
+                            Height="90"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#7FC8F8"
+                            BorderBrush="#1F6FA8"
+                            BorderThickness="2"
+                            CornerRadius="14"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="CartTemplate_MouseLeftButtonDown">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Cart"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#103652"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="Half seat width"
+                                       FontSize="12"
+                                       Foreground="#24506F"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
         </Border>
 
         <Grid Grid.Column="1" Margin="0,20,20,20">
@@ -166,11 +160,17 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="Research Lab Layout"
-                           FontSize="30"
-                           FontWeight="Bold"
-                           Foreground="#24313F"
-                           VerticalAlignment="Center"/>
+                <TextBox x:Name="LayoutTitleTextBox"
+                         Text="Research Lab Layout"
+                         FontSize="30"
+                         FontWeight="Bold"
+                         Foreground="#24313F"
+                         VerticalAlignment="Center"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="0"
+                         Margin="0"
+                         MinWidth="260"/>
 
                 <Button x:Name="AddMapButton"
                         Grid.Column="1"
@@ -209,7 +209,14 @@
                     BorderThickness="3"
                     CornerRadius="20"
                     Padding="18">
-                <Grid x:Name="MapHost"/>
+                <ScrollViewer x:Name="MapScrollViewer"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              CanContentScroll="False">
+                    <Grid x:Name="MapHost"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Top"/>
+                </ScrollViewer>
             </Border>
         </Grid>
     </Grid>
