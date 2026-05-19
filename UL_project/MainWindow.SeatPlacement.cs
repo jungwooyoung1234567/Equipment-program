@@ -237,6 +237,7 @@ namespace UL_project
                 return;
             }
 
+            // Edit mode opens the editor on a single click instead of dragging.
             if (_currentMode == EditorMode.Edit)
             {
                 OpenSeatEditor(seat);

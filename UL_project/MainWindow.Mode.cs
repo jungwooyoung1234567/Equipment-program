@@ -54,7 +54,7 @@ namespace UL_project
             // 현재 모드 설명 문구를 바꾼다.
             ModeDescriptionText.Text = isPlaceMode
                 ? "Place mode: create, move, and delete seats and lacks on the map."
-                : "Edit mode: double-click a seat to edit properties. Moving is disabled.";
+                : "Edit mode: click a seat to edit properties. Moving is disabled.";
             TrashDescriptionText.Text = isPlaceMode
                 ? "Drag a seat here in Place mode to delete it"
                 : "Trash is disabled outside Place mode";
