@@ -58,6 +58,16 @@
                                 Click="FindEquipmentButton_Click"/>
                     </StackPanel>
 
+                    <Button x:Name="ResetLayoutButton"
+                            Width="266"
+                            Height="36"
+                            Margin="0,10,0,0"
+                            Content="Reset JSON Layout"
+                            Background="#8B2E2E"
+                            Foreground="White"
+                            BorderBrush="#8B2E2E"
+                            Click="ResetLayoutButton_Click"/>
+
                     <TextBlock x:Name="ModeDescriptionText"
                                Margin="0,10,0,0"
                                Foreground="#D7DCE8"

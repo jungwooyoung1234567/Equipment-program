@@ -4,6 +4,8 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace UL_project
 {
@@ -17,6 +19,10 @@ namespace UL_project
         private readonly ObservableCollection<EquipmentDraft> _equipmentItems;
         private readonly DataGrid _equipmentGrid;
         private readonly TextBlock _equipmentCountText;
+        private Point _dragSelectionStartPoint;
+        private bool _hasPendingDragSelection;
+        private bool _isDraggingSelection;
+        private int _dragSelectionStartIndex = -1;
 
         public string SeatName => _nameTextBox.Text.Trim();
 
@@ -198,9 +204,15 @@ namespace UL_project
                 CanUserDeleteRows = false,
                 HeadersVisibility = DataGridHeadersVisibility.Column,
                 ItemsSource = _equipmentItems,
-                SelectionMode = DataGridSelectionMode.Single,
+                SelectionMode = DataGridSelectionMode.Extended,
+                SelectionUnit = DataGridSelectionUnit.FullRow,
                 Margin = new Thickness(0, 0, 0, 0)
             };
+
+            grid.PreviewMouseLeftButtonDown += EquipmentGrid_PreviewMouseLeftButtonDown;
+            grid.PreviewMouseMove += EquipmentGrid_PreviewMouseMove;
+            grid.PreviewMouseLeftButtonUp += EquipmentGrid_PreviewMouseLeftButtonUp;
+            grid.LostMouseCapture += EquipmentGrid_LostMouseCapture;
 
             grid.Columns.Add(new DataGridTextColumn
             {
@@ -253,13 +265,136 @@ namespace UL_project
         // 현재 선택된 장비 행을 목록에서 제거한다.
         private void RemoveSelectedButton_Click(object? sender, RoutedEventArgs e)
         {
-            if (_equipmentGrid.SelectedItem is not EquipmentDraft selectedItem)
+            var selectedItems = _equipmentGrid.SelectedItems
+                .OfType<EquipmentDraft>()
+                .ToList();
+
+            if (selectedItems.Count == 0)
             {
                 return;
             }
 
-            _equipmentItems.Remove(selectedItem);
+            foreach (var selectedItem in selectedItems)
+            {
+                _equipmentItems.Remove(selectedItem);
+            }
+
             UpdateEquipmentCount();
+        }
+
+        private void EquipmentGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var row = FindVisualParent<DataGridRow>(e.OriginalSource as DependencyObject);
+            if (row is null)
+            {
+                ResetDragSelection();
+                return;
+            }
+
+            _dragSelectionStartPoint = e.GetPosition(_equipmentGrid);
+            _dragSelectionStartIndex = row.GetIndex();
+            _hasPendingDragSelection = true;
+        }
+
+        private void EquipmentGrid_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            if (!_isDraggingSelection && _hasPendingDragSelection)
+            {
+                var currentPoint = e.GetPosition(_equipmentGrid);
+                var horizontalDistance = System.Math.Abs(currentPoint.X - _dragSelectionStartPoint.X);
+                var verticalDistance = System.Math.Abs(currentPoint.Y - _dragSelectionStartPoint.Y);
+
+                if (horizontalDistance < SystemParameters.MinimumHorizontalDragDistance &&
+                    verticalDistance < SystemParameters.MinimumVerticalDragDistance)
+                {
+                    return;
+                }
+
+                _isDraggingSelection = true;
+                _equipmentGrid.CaptureMouse();
+                SelectEquipmentRange(_dragSelectionStartIndex, _dragSelectionStartIndex);
+            }
+
+            if (!_isDraggingSelection)
+            {
+                return;
+            }
+
+            var row = FindRowAtPosition(e.GetPosition(_equipmentGrid));
+            if (row is null)
+            {
+                return;
+            }
+
+            SelectEquipmentRange(_dragSelectionStartIndex, row.GetIndex());
+        }
+
+        private void EquipmentGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            ResetDragSelection();
+        }
+
+        private void EquipmentGrid_LostMouseCapture(object sender, MouseEventArgs e)
+        {
+            ResetDragSelection();
+        }
+
+        private void SelectEquipmentRange(int startIndex, int endIndex)
+        {
+            if (startIndex < 0 || endIndex < 0 || _equipmentItems.Count == 0)
+            {
+                return;
+            }
+
+            var rangeStart = startIndex < endIndex ? startIndex : endIndex;
+            var rangeEnd = startIndex > endIndex ? startIndex : endIndex;
+
+            _equipmentGrid.SelectedItems.Clear();
+            for (var index = rangeStart; index <= rangeEnd; index++)
+            {
+                _equipmentGrid.SelectedItems.Add(_equipmentItems[index]);
+            }
+
+            _equipmentGrid.CurrentItem = _equipmentItems[endIndex];
+        }
+
+        private DataGridRow? FindRowAtPosition(Point position)
+        {
+            var hit = _equipmentGrid.InputHitTest(position) as DependencyObject;
+            return FindVisualParent<DataGridRow>(hit);
+        }
+
+        private void ResetDragSelection()
+        {
+            _hasPendingDragSelection = false;
+            _isDraggingSelection = false;
+            _dragSelectionStartIndex = -1;
+
+            if (_equipmentGrid.IsMouseCaptured)
+            {
+                _equipmentGrid.ReleaseMouseCapture();
+            }
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child)
+            where T : DependencyObject
+        {
+            while (child is not null)
+            {
+                if (child is T parent)
+                {
+                    return parent;
+                }
+
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
         }
 
         // 편집 중인 셀 내용을 확정한 뒤 대화상자를 저장 상태로 닫는다.

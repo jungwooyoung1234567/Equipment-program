@@ -130,6 +130,38 @@ namespace UL_project
             File.WriteAllText(LayoutFilePath, json);
         }
 
+        private void ResetLayoutButton_Click(object sender, RoutedEventArgs e)
+        {
+            var confirmationResult = MessageBox.Show(
+                "Reset the current layout and overwrite the saved JSON file?",
+                "Reset Layout",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirmationResult != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                CancelSeatDrag();
+                StopSeatHighlight();
+                InitializeDefaultLayout();
+                SyncPlacementCounters();
+                UpdateMapUi();
+                SaveLayout();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to reset layout.\n{ex.Message}",
+                    "Reset Layout",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+
         private LayoutState BuildLayoutState()
         {
             var layoutState = new LayoutState
