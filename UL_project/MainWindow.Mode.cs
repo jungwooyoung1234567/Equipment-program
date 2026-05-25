@@ -51,8 +51,10 @@ namespace UL_project
             CartTemplate.Opacity = isPlaceMode ? 1.0 : 0.45;
             CartTemplate.Cursor = isPlaceMode ? Cursors.Hand : Cursors.No;
 
+            UpdateResizeHandleVisibility();
+
             ModeDescriptionText.Text = isPlaceMode
-                ? "Place mode: create and move seats, lacks, and carts. Click an item to open actions such as delete."
+                ? "Place mode: create, move, resize, and rotate seats, lacks, and carts. Click an item to open actions such as delete."
                 : "Edit mode: click a seat to edit properties. Moving is disabled.";
         }
     }

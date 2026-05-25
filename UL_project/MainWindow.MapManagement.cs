@@ -154,6 +154,7 @@ namespace UL_project
 
             mapCanvas.DragOver += MapCanvas_DragOver;
             mapCanvas.Drop += MapCanvas_Drop;
+            mapCanvas.MouseLeftButtonDown += MapCanvas_MouseLeftButtonDown;
             return mapCanvas;
         }
 

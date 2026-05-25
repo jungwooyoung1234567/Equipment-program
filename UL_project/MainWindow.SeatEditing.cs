@@ -108,7 +108,8 @@ namespace UL_project
         private void UpdateSeatDisplay(Border seat, SeatInfo seatInfo)
         {
             // 표시용 텍스트는 StackPanel 안의 두 TextBlock을 직접 수정한다.
-            if (seat.Child is not StackPanel content || content.Children.Count < 2)
+            var content = GetSeatContentPanel(seat);
+            if (content is null || content.Children.Count < 2)
             {
                 return;
             }
@@ -131,6 +132,27 @@ namespace UL_project
         }
 
         // 검색으로 이동한 좌석이 스크롤 영역 안에 들어오도록 위치를 맞춘다.
+        private static StackPanel? GetSeatContentPanel(Border seat)
+        {
+            if (seat.Child is StackPanel directPanel)
+            {
+                return directPanel;
+            }
+
+            if (seat.Child is Grid root)
+            {
+                foreach (var child in root.Children)
+                {
+                    if (child is StackPanel nestedPanel)
+                    {
+                        return nestedPanel;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private void BringSeatIntoView(Border seat)
         {
             if (GetSeatCanvas(seat) is null)
@@ -188,7 +210,8 @@ namespace UL_project
                 return;
             }
 
-            if (TryGetScaleTransform(_highlightedSeat, out var scaleTransform))
+            if (TryGetScaleTransform(_highlightedSeat, out var scaleTransform) &&
+                scaleTransform is not null)
             {
                 scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
                 scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);

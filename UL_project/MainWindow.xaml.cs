@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace UL_project
 {
@@ -11,6 +12,7 @@ namespace UL_project
             UpdateMapUi();
             UpdateModeUi();
             Closing += MainWindow_Closing;
+            PreviewKeyDown += MainWindow_PreviewKeyDown;
         }
     }
 }

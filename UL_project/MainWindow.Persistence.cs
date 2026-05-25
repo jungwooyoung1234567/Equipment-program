@@ -19,16 +19,32 @@ namespace UL_project
         };
 
         private static string LayoutFilePath => Path.Combine(AppContext.BaseDirectory, "layout.json");
+        private static string LayoutBackupFilePath => $"{LayoutFilePath}.bak";
+        private static string LayoutTempFilePath => $"{LayoutFilePath}.tmp";
+
+        private bool _preserveExistingLayoutFile;
 
         private void LoadOrInitializeLayout()
         {
-            if (TryLoadLayout())
+            if (!File.Exists(LayoutFilePath))
+            {
+                InitializeDefaultLayout();
+                SaveLayout();
+                return;
+            }
+
+            if (TryLoadLayout(out var loadError))
             {
                 return;
             }
 
             InitializeDefaultLayout();
-            SaveLayout();
+            _preserveExistingLayoutFile = true;
+            MessageBox.Show(
+                $"Failed to load the saved layout.\nThe existing layout file was left unchanged so you can recover it manually.\n\n{loadError}",
+                "Load Layout",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
 
         private void InitializeDefaultLayout()
@@ -42,27 +58,25 @@ namespace UL_project
             _mapNames.Add(BuildDefaultMapName(1));
         }
 
-        private bool TryLoadLayout()
+        private bool TryLoadLayout(out string? errorMessage)
         {
-            if (!File.Exists(LayoutFilePath))
-            {
-                return false;
-            }
-
             try
             {
                 var json = File.ReadAllText(LayoutFilePath);
                 var layoutState = JsonSerializer.Deserialize<LayoutState>(json, LayoutJsonOptions);
                 if (layoutState is null)
                 {
+                    errorMessage = "The layout file is empty or could not be parsed.";
                     return false;
                 }
 
                 ApplyLayoutState(layoutState);
+                errorMessage = null;
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                errorMessage = ex.Message;
                 return false;
             }
         }
@@ -127,7 +141,15 @@ namespace UL_project
         {
             var layoutState = BuildLayoutState();
             var json = JsonSerializer.Serialize(layoutState, LayoutJsonOptions);
-            File.WriteAllText(LayoutFilePath, json);
+            File.WriteAllText(LayoutTempFilePath, json);
+
+            if (File.Exists(LayoutFilePath))
+            {
+                File.Copy(LayoutFilePath, LayoutBackupFilePath, overwrite: true);
+            }
+
+            File.Move(LayoutTempFilePath, LayoutFilePath, overwrite: true);
+            _preserveExistingLayoutFile = false;
         }
 
         private void ResetLayoutButton_Click(object sender, RoutedEventArgs e)
@@ -150,6 +172,7 @@ namespace UL_project
                 InitializeDefaultLayout();
                 SyncPlacementCounters();
                 UpdateMapUi();
+                _preserveExistingLayoutFile = false;
                 SaveLayout();
             }
             catch (Exception ex)
@@ -207,6 +230,11 @@ namespace UL_project
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (_preserveExistingLayoutFile)
+            {
+                return;
+            }
+
             try
             {
                 SaveLayout();
