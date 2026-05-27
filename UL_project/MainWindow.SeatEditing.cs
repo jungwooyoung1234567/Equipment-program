@@ -65,6 +65,7 @@ namespace UL_project
         private List<EquipmentSearchResult> BuildEquipmentSearchIndex()
         {
             var results = new List<EquipmentSearchResult>();
+            var resultKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (var mapIndex = 0; mapIndex < _mapCanvases.Count; mapIndex++)
             {
@@ -80,18 +81,34 @@ namespace UL_project
 
                     for (var equipmentIndex = 0; equipmentIndex < seatInfo.Equipments.Count; equipmentIndex++)
                     {
+                        var equipment = seatInfo.Equipments[equipmentIndex];
+                        var resultKey = BuildEquipmentResultKey(equipment);
+                        if (!resultKeys.Add(resultKey))
+                        {
+                            continue;
+                        }
+
                         results.Add(new EquipmentSearchResult(
                             mapIndex,
                             _mapNames[mapIndex],
                             seat,
                             seatInfo,
-                            seatInfo.Equipments[equipmentIndex],
+                            equipment,
                             equipmentIndex));
                     }
                 }
             }
 
             return results;
+        }
+
+        private static string BuildEquipmentResultKey(EquipmentInfo equipment)
+        {
+            return string.Join(
+                "|",
+                equipment.Name.Trim(),
+                equipment.UlNumber.Trim(),
+                equipment.GlobalNumber.Trim());
         }
 
         private void NavigateToEquipment(EquipmentSearchResult result)

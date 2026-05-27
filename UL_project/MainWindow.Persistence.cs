@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -90,6 +91,11 @@ namespace UL_project
                 ? "연구실 레이아웃"
                 : layoutState.LayoutTitle;
 
+            var usedUlNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var usedGlobalNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var nextUlNumber = 1;
+            var nextGlobalNumber = 200000;
+
             foreach (var mapState in layoutState.Maps)
             {
                 var mapCanvas = CreateMapCanvas();
@@ -100,7 +106,12 @@ namespace UL_project
 
                 foreach (var itemState in mapState.Items)
                 {
-                    var item = BuildItemFromState(itemState);
+                    var item = BuildItemFromState(
+                        itemState,
+                        usedUlNumbers,
+                        usedGlobalNumbers,
+                        ref nextUlNumber,
+                        ref nextGlobalNumber);
                     mapCanvas.Children.Add(item);
                     SetSeatPosition(mapCanvas, item, itemState.Left, itemState.Top);
                 }
@@ -116,7 +127,12 @@ namespace UL_project
             SyncPlacementCounters();
         }
 
-        private Border BuildItemFromState(MapItemState itemState)
+        private Border BuildItemFromState(
+            MapItemState itemState,
+            HashSet<string> usedUlNumbers,
+            HashSet<string> usedGlobalNumbers,
+            ref int nextUlNumber,
+            ref int nextGlobalNumber)
         {
             var seatInfo = itemState.SeatInfo ?? new SeatInfo();
             var itemType = string.IsNullOrWhiteSpace(itemState.Type) ? SeatItemType : itemState.Type;
@@ -129,7 +145,8 @@ namespace UL_project
 
             item.Width = itemState.Width > 0 ? itemState.Width : item.Width;
             item.Height = itemState.Height > 0 ? itemState.Height : item.Height;
-            EnsureMinimumSampleEquipment(seatInfo, itemType);
+            EnsureEquipmentIdentifiers(seatInfo, usedUlNumbers, usedGlobalNumbers, ref nextUlNumber, ref nextGlobalNumber);
+            EnsureMinimumSampleEquipment(seatInfo, itemType, usedUlNumbers, usedGlobalNumbers, ref nextUlNumber, ref nextGlobalNumber);
             item.Tag = seatInfo;
             UpdateSeatDisplay(item, seatInfo);
 
@@ -138,17 +155,56 @@ namespace UL_project
             return item;
         }
 
-        private static void EnsureMinimumSampleEquipment(SeatInfo seatInfo, string itemType)
+        private static void EnsureEquipmentIdentifiers(
+            SeatInfo seatInfo,
+            HashSet<string> usedUlNumbers,
+            HashSet<string> usedGlobalNumbers,
+            ref int nextUlNumber,
+            ref int nextGlobalNumber)
+        {
+            foreach (var equipment in seatInfo.Equipments)
+            {
+                if (!TryRegisterUlNumber(equipment.UlNumber, usedUlNumbers))
+                {
+                    equipment.UlNumber = GetNextUlNumber(usedUlNumbers, ref nextUlNumber);
+                }
+
+                if (!TryRegisterGlobalNumber(equipment.GlobalNumber, usedGlobalNumbers))
+                {
+                    equipment.GlobalNumber = GetNextGlobalNumber(usedGlobalNumbers, ref nextGlobalNumber);
+                }
+            }
+        }
+
+        private static void EnsureMinimumSampleEquipment(
+            SeatInfo seatInfo,
+            string itemType,
+            HashSet<string> usedUlNumbers,
+            HashSet<string> usedGlobalNumbers,
+            ref int nextUlNumber,
+            ref int nextGlobalNumber)
         {
             const int minimumEquipmentCount = 10;
 
             for (var index = seatInfo.Equipments.Count; index < minimumEquipmentCount; index++)
             {
-                seatInfo.Equipments.Add(CreateSampleEquipment(seatInfo, itemType, index + 1));
+                seatInfo.Equipments.Add(CreateSampleEquipment(
+                    itemType,
+                    index + 1,
+                    usedUlNumbers,
+                    usedGlobalNumbers,
+                    ref nextUlNumber,
+                    ref nextGlobalNumber));
             }
         }
 
-        private static EquipmentInfo CreateSampleEquipment(SeatInfo seatInfo, string itemType, int number)
+        private static EquipmentInfo CreateSampleEquipment(
+            string itemType,
+            int number,
+            HashSet<string> usedUlNumbers,
+            HashSet<string> usedGlobalNumbers,
+            ref int nextUlNumber,
+            ref int nextGlobalNumber)
         {
             var itemPrefix = itemType switch
             {
@@ -156,28 +212,75 @@ namespace UL_project
                 CartItemType => "Cart",
                 _ => "Bench"
             };
-            var seatCode = BuildSampleSeatCode(seatInfo.SeatName);
 
             return new EquipmentInfo
             {
                 Name = $"{itemPrefix} Equipment {number:00}",
-                UlNumber = $"UL-{seatCode}-{number:00}",
-                GlobalNumber = $"GL-{seatCode}-{number:00}",
+                UlNumber = GetNextUlNumber(usedUlNumbers, ref nextUlNumber),
+                GlobalNumber = GetNextGlobalNumber(usedGlobalNumbers, ref nextGlobalNumber),
                 Notes = "Sample data",
                 PhotoPath = string.Empty
             };
         }
 
-        private static string BuildSampleSeatCode(string seatName)
+        private static bool TryRegisterUlNumber(string ulNumber, HashSet<string> usedUlNumbers)
         {
-            var normalized = new string((seatName ?? string.Empty)
-                .Where(char.IsLetterOrDigit)
-                .Take(6)
-                .ToArray());
+            return IsValidUlNumber(ulNumber) && usedUlNumbers.Add(ulNumber.Trim());
+        }
 
-            return string.IsNullOrWhiteSpace(normalized)
-                ? "ITEM"
-                : normalized.ToUpperInvariant();
+        private static bool TryRegisterGlobalNumber(string globalNumber, HashSet<string> usedGlobalNumbers)
+        {
+            return IsValidGlobalNumber(globalNumber) && usedGlobalNumbers.Add(globalNumber.Trim());
+        }
+
+        private static bool IsValidUlNumber(string ulNumber)
+        {
+            const string prefix = "UL-S-";
+
+            if (string.IsNullOrWhiteSpace(ulNumber) ||
+                !ulNumber.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var suffix = ulNumber.Trim()[prefix.Length..];
+            return suffix.Length == 3 && suffix.All(char.IsDigit);
+        }
+
+        private static bool IsValidGlobalNumber(string globalNumber)
+        {
+            var trimmed = globalNumber.Trim();
+            return trimmed.Length == 6 && trimmed[0] == '2' && trimmed.All(char.IsDigit);
+        }
+
+        private static string GetNextUlNumber(HashSet<string> usedUlNumbers, ref int nextUlNumber)
+        {
+            while (nextUlNumber <= 999)
+            {
+                var candidate = $"UL-S-{nextUlNumber:000}";
+                nextUlNumber++;
+                if (usedUlNumbers.Add(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            throw new InvalidOperationException("UL-S equipment number range is exhausted.");
+        }
+
+        private static string GetNextGlobalNumber(HashSet<string> usedGlobalNumbers, ref int nextGlobalNumber)
+        {
+            while (nextGlobalNumber <= 299999)
+            {
+                var candidate = nextGlobalNumber.ToString();
+                nextGlobalNumber++;
+                if (usedGlobalNumbers.Add(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            throw new InvalidOperationException("Global equipment number range is exhausted.");
         }
 
         private void SaveLayout()
