@@ -129,12 +129,55 @@ namespace UL_project
 
             item.Width = itemState.Width > 0 ? itemState.Width : item.Width;
             item.Height = itemState.Height > 0 ? itemState.Height : item.Height;
+            EnsureMinimumSampleEquipment(seatInfo, itemType);
             item.Tag = seatInfo;
             UpdateSeatDisplay(item, seatInfo);
 
             var rotateTransform = GetOrCreateRotateTransform(item);
             rotateTransform.Angle = ((itemState.Rotation % 360) + 360) % 360;
             return item;
+        }
+
+        private static void EnsureMinimumSampleEquipment(SeatInfo seatInfo, string itemType)
+        {
+            const int minimumEquipmentCount = 10;
+
+            for (var index = seatInfo.Equipments.Count; index < minimumEquipmentCount; index++)
+            {
+                seatInfo.Equipments.Add(CreateSampleEquipment(seatInfo, itemType, index + 1));
+            }
+        }
+
+        private static EquipmentInfo CreateSampleEquipment(SeatInfo seatInfo, string itemType, int number)
+        {
+            var itemPrefix = itemType switch
+            {
+                LackItemType => "Shelf",
+                CartItemType => "Cart",
+                _ => "Bench"
+            };
+            var seatCode = BuildSampleSeatCode(seatInfo.SeatName);
+
+            return new EquipmentInfo
+            {
+                Name = $"{itemPrefix} Equipment {number:00}",
+                UlNumber = $"UL-{seatCode}-{number:00}",
+                GlobalNumber = $"GL-{seatCode}-{number:00}",
+                Notes = "Sample data",
+                PhotoPath = string.Empty
+            };
+        }
+
+        private static string BuildSampleSeatCode(string seatName)
+        {
+            var normalized = new string((seatName ?? string.Empty)
+                .Where(char.IsLetterOrDigit)
+                .Take(6)
+                .ToArray());
+
+            return string.IsNullOrWhiteSpace(normalized)
+                ? "ITEM"
+                : normalized.ToUpperInvariant();
         }
 
         private void SaveLayout()

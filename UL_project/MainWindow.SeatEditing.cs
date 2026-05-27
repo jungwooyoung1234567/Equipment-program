@@ -78,9 +78,15 @@ namespace UL_project
                         continue;
                     }
 
-                    foreach (var equipment in seatInfo.Equipments)
+                    for (var equipmentIndex = 0; equipmentIndex < seatInfo.Equipments.Count; equipmentIndex++)
                     {
-                        results.Add(new EquipmentSearchResult(mapIndex, _mapNames[mapIndex], seat, seatInfo, equipment));
+                        results.Add(new EquipmentSearchResult(
+                            mapIndex,
+                            _mapNames[mapIndex],
+                            seat,
+                            seatInfo,
+                            seatInfo.Equipments[equipmentIndex],
+                            equipmentIndex));
                     }
                 }
             }
@@ -95,6 +101,31 @@ namespace UL_project
             UpdateMapUi();
             BringSeatIntoView(result.Seat);
             StartSeatHighlight(result.Seat);
+            OpenSeatEditor(result.Seat, result.EquipmentIndex);
+        }
+
+        private void OpenSeatEditor(Border seat, int selectedEquipmentIndex)
+        {
+            if (seat.Tag is not SeatInfo seatInfo)
+            {
+                return;
+            }
+
+            var editorWindow = new SeatEditorWindow(seatInfo, GetItemTypeDisplayName(seat.Uid), selectedEquipmentIndex)
+            {
+                Owner = this
+            };
+
+            if (editorWindow.ShowDialog() != true)
+            {
+                return;
+            }
+
+            seatInfo.SeatName = string.IsNullOrWhiteSpace(editorWindow.SeatName) ? seatInfo.SeatName : editorWindow.SeatName;
+            seatInfo.TeamName = editorWindow.TeamName;
+            seatInfo.Equipments = editorWindow.Equipments;
+
+            UpdateSeatDisplay(seat, seatInfo);
         }
 
         private void UpdateSeatDisplay(Border seat, SeatInfo seatInfo)

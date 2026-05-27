@@ -25,6 +25,7 @@ namespace UL_project
         private readonly List<EquipmentDraft> _copiedEquipmentRows = new();
         private readonly DataGrid _equipmentGrid;
         private readonly TextBlock _equipmentCountText;
+        private readonly int _initialEquipmentIndex;
         private Point _dragSelectionStartPoint;
         private bool _hasPendingDragSelection;
         private bool _isDraggingSelection;
@@ -40,8 +41,9 @@ namespace UL_project
                 .Select(item => item.ToEquipmentInfo())
                 .ToList();
 
-        public SeatEditorWindow(SeatInfo seatInfo, string paletteTypeName)
+        public SeatEditorWindow(SeatInfo seatInfo, string paletteTypeName, int initialEquipmentIndex = -1)
         {
+            _initialEquipmentIndex = initialEquipmentIndex;
             Title = "배치 장비 편집";
             Width = 1120;
             Height = 700;
@@ -220,7 +222,33 @@ namespace UL_project
             CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, TextEditingCommand_Executed, TextEditingCommand_CanExecute));
             CommandBindings.Add(new CommandBinding(ApplicationCommands.Cut, TextEditingCommand_Executed, TextEditingCommand_CanExecute));
             CommandBindings.Add(new CommandBinding(ApplicationCommands.Paste, TextEditingCommand_Executed, TextEditingCommand_CanExecute));
+            Loaded += SeatEditorWindow_Loaded;
             UpdateEquipmentCount();
+        }
+
+        private void SeatEditorWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            ScrollToInitialEquipment();
+        }
+
+        private void ScrollToInitialEquipment()
+        {
+            if (_initialEquipmentIndex < 0 || _initialEquipmentIndex >= _equipmentItems.Count)
+            {
+                return;
+            }
+
+            var item = _equipmentItems[_initialEquipmentIndex];
+            _equipmentGrid.SelectedItem = item;
+            _equipmentGrid.CurrentItem = item;
+            _equipmentGrid.Focus();
+
+            Dispatcher.BeginInvoke(new System.Action(() =>
+            {
+                _equipmentGrid.ScrollIntoView(item);
+                _equipmentGrid.UpdateLayout();
+                _equipmentGrid.ScrollIntoView(item);
+            }));
         }
 
         private DataGrid BuildEquipmentGrid()

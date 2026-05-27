@@ -234,7 +234,7 @@ namespace UL_project
     internal sealed class EquipmentSearchResult
     {
         // 검색 결과 하나를 만들고 표시용 문자열과 참조를 함께 보관한다.
-        public EquipmentSearchResult(int mapIndex, string mapName, Border seat, SeatInfo seatInfo, EquipmentInfo equipment)
+        public EquipmentSearchResult(int mapIndex, string mapName, Border seat, SeatInfo seatInfo, EquipmentInfo equipment, int equipmentIndex)
         {
             MapIndex = mapIndex;
             MapName = string.IsNullOrWhiteSpace(mapName) ? $"맵 {mapIndex + 1}" : mapName;
@@ -243,6 +243,7 @@ namespace UL_project
             EquipmentName = string.IsNullOrWhiteSpace(equipment.Name) ? "(이름 없음)" : equipment.Name;
             UlNumber = equipment.UlNumber;
             GlobalNumber = equipment.GlobalNumber;
+            EquipmentIndex = equipmentIndex;
         }
 
         public int MapIndex { get; }
@@ -258,6 +259,8 @@ namespace UL_project
         public string UlNumber { get; }
 
         public string GlobalNumber { get; }
+
+        public int EquipmentIndex { get; }
 
         // 현재 검색어가 이 결과와 일치하는지 판단한다.
         public int GetMatchScore(string query, EquipmentSearchField searchField)
