@@ -13,6 +13,7 @@ namespace UL_project
         // 이 대화상자는 미리 만들어 둔 장비 검색 인덱스를 화면에 보여준다.
         private readonly IReadOnlyList<EquipmentSearchResult> _searchIndex;
         private readonly TextBox _queryTextBox;
+        private readonly ComboBox _searchFieldComboBox;
         private readonly StackPanel _resultsPanel;
         private readonly TextBlock _statusText;
 
@@ -23,7 +24,7 @@ namespace UL_project
         {
             _searchIndex = searchIndex;
 
-            Title = "Find Equipment";
+            Title = "장비 검색";
             Width = 560;
             Height = 520;
             MinWidth = 480;
@@ -42,29 +43,42 @@ namespace UL_project
 
             root.Children.Add(new TextBlock
             {
-                Text = "Find Equipment",
+                Text = "장비 검색",
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#24313F"))
             });
 
-            var searchPanel = new DockPanel
+            var searchPanel = new Grid
             {
                 Margin = new Thickness(0, 14, 0, 0)
             };
+            searchPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            searchPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            searchPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             Grid.SetRow(searchPanel, 1);
+
+            _searchFieldComboBox = new ComboBox
+            {
+                Width = 120,
+                Height = 34,
+                Margin = new Thickness(0, 0, 10, 0),
+                ItemsSource = Enum.GetValues(typeof(EquipmentSearchField))
+            };
+            _searchFieldComboBox.SelectedItem = EquipmentSearchField.Name;
+            Grid.SetColumn(_searchFieldComboBox, 0);
 
             var searchButton = new Button
             {
                 Width = 88,
                 Height = 34,
-                Content = "Search",
+                Content = "검색",
                 Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#24313F")),
                 Foreground = Brushes.White,
                 BorderBrush = Brushes.Transparent
             };
             searchButton.Click += (_, _) => RenderSearchResults();
-            DockPanel.SetDock(searchButton, Dock.Right);
+            Grid.SetColumn(searchButton, 2);
 
             _queryTextBox = new TextBox
             {
@@ -72,7 +86,9 @@ namespace UL_project
                 Margin = new Thickness(0, 0, 10, 0)
             };
             _queryTextBox.KeyDown += QueryTextBox_KeyDown;
+            Grid.SetColumn(_queryTextBox, 1);
 
+            searchPanel.Children.Add(_searchFieldComboBox);
             searchPanel.Children.Add(searchButton);
             searchPanel.Children.Add(_queryTextBox);
             root.Children.Add(searchPanel);
@@ -81,7 +97,7 @@ namespace UL_project
             {
                 Margin = new Thickness(0, 10, 0, 12),
                 Foreground = Brushes.DimGray,
-                Text = "Type a name, UL Number, or Global Number."
+                Text = "검색 기준을 선택하고 값을 입력하세요."
             };
             Grid.SetRow(_statusText, 2);
             root.Children.Add(_statusText);
@@ -121,20 +137,31 @@ namespace UL_project
             var query = _queryTextBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(query))
             {
-                _statusText.Text = "Enter a value to search.";
+                _statusText.Text = "검색어를 입력하세요.";
                 return;
             }
 
+            var searchField = _searchFieldComboBox.SelectedItem is EquipmentSearchField selectedField
+                ? selectedField
+                : EquipmentSearchField.Name;
+
             var matches = _searchIndex
-                .Where(result => result.IsMatch(query))
-                .OrderBy(result => result.MapIndex)
-                .ThenBy(result => result.SeatName)
-                .ThenBy(result => result.EquipmentName)
+                .Select(result => new
+                {
+                    Result = result,
+                    Score = result.GetMatchScore(query, searchField)
+                })
+                .Where(entry => entry.Score > 0)
+                .OrderByDescending(entry => entry.Score)
+                .ThenBy(entry => entry.Result.MapIndex)
+                .ThenBy(entry => entry.Result.SeatName)
+                .ThenBy(entry => entry.Result.EquipmentName)
+                .Select(entry => entry.Result)
                 .ToList();
 
             _statusText.Text = matches.Count == 0
-                ? "No matching equipment was found."
-                : $"{matches.Count} equipment item(s) found. Click a result to move to its map and highlight the seat.";
+                ? "일치하는 장비를 찾지 못했습니다."
+                : $"{matches.Count}개의 장비를 찾았습니다. 가장 유사한 결과부터 표시합니다.";
 
             foreach (var match in matches)
             {
@@ -168,7 +195,7 @@ namespace UL_project
             content.Children.Add(new TextBlock
             {
                 Margin = new Thickness(0, 4, 0, 0),
-                Text = $"Seat: {result.SeatName} | Map {result.MapIndex + 1}",
+                Text = $"기구: {result.SeatName} | {result.MapName}",
                 Foreground = Brushes.DimGray
             });
             content.Children.Add(new TextBlock
@@ -197,20 +224,30 @@ namespace UL_project
         }
     }
 
+    internal enum EquipmentSearchField
+    {
+        Name,
+        ULName,
+        GlobalName
+    }
+
     internal sealed class EquipmentSearchResult
     {
         // 검색 결과 하나를 만들고 표시용 문자열과 참조를 함께 보관한다.
-        public EquipmentSearchResult(int mapIndex, Border seat, SeatInfo seatInfo, EquipmentInfo equipment)
+        public EquipmentSearchResult(int mapIndex, string mapName, Border seat, SeatInfo seatInfo, EquipmentInfo equipment)
         {
             MapIndex = mapIndex;
+            MapName = string.IsNullOrWhiteSpace(mapName) ? $"맵 {mapIndex + 1}" : mapName;
             Seat = seat;
-            SeatName = string.IsNullOrWhiteSpace(seatInfo.SeatName) ? "Unnamed Seat" : seatInfo.SeatName;
-            EquipmentName = string.IsNullOrWhiteSpace(equipment.Name) ? "(No Name)" : equipment.Name;
+            SeatName = string.IsNullOrWhiteSpace(seatInfo.SeatName) ? "이름 없는 기구" : seatInfo.SeatName;
+            EquipmentName = string.IsNullOrWhiteSpace(equipment.Name) ? "(이름 없음)" : equipment.Name;
             UlNumber = equipment.UlNumber;
             GlobalNumber = equipment.GlobalNumber;
         }
 
         public int MapIndex { get; }
+
+        public string MapName { get; }
 
         public Border Seat { get; }
 
@@ -223,11 +260,118 @@ namespace UL_project
         public string GlobalNumber { get; }
 
         // 현재 검색어가 이 결과와 일치하는지 판단한다.
-        public bool IsMatch(string query)
+        public int GetMatchScore(string query, EquipmentSearchField searchField)
         {
-            return EquipmentName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(UlNumber, query, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(GlobalNumber, query, StringComparison.OrdinalIgnoreCase);
+            var candidate = searchField switch
+            {
+                EquipmentSearchField.Name => EquipmentName,
+                EquipmentSearchField.ULName => UlNumber,
+                EquipmentSearchField.GlobalName => GlobalNumber,
+                _ => string.Empty
+            };
+
+            return CalculateMatchScore(candidate, query);
+        }
+
+        private static int CalculateMatchScore(string candidate, string query)
+        {
+            if (string.IsNullOrWhiteSpace(candidate) || string.IsNullOrWhiteSpace(query))
+            {
+                return 0;
+            }
+
+            var normalizedCandidate = candidate.Trim();
+            var normalizedQuery = query.Trim();
+
+            if (string.Equals(normalizedCandidate, normalizedQuery, StringComparison.OrdinalIgnoreCase))
+            {
+                return 1000;
+            }
+
+            if (normalizedCandidate.StartsWith(normalizedQuery, StringComparison.OrdinalIgnoreCase))
+            {
+                return 800 - Math.Max(0, normalizedCandidate.Length - normalizedQuery.Length);
+            }
+
+            var containsIndex = normalizedCandidate.IndexOf(normalizedQuery, StringComparison.OrdinalIgnoreCase);
+            if (containsIndex >= 0)
+            {
+                return 650 - containsIndex;
+            }
+
+            if (IsSubsequenceMatch(normalizedCandidate, normalizedQuery))
+            {
+                return 450 - Math.Max(0, normalizedCandidate.Length - normalizedQuery.Length);
+            }
+
+            var distance = GetLevenshteinDistance(
+                normalizedCandidate.ToUpperInvariant(),
+                normalizedQuery.ToUpperInvariant());
+            var threshold = Math.Max(2, normalizedQuery.Length / 2);
+            if (distance > threshold)
+            {
+                return 0;
+            }
+
+            return 250 - (distance * 40) - Math.Abs(normalizedCandidate.Length - normalizedQuery.Length);
+        }
+
+        private static bool IsSubsequenceMatch(string candidate, string query)
+        {
+            var candidateIndex = 0;
+
+            foreach (var queryCharacter in query)
+            {
+                var matched = false;
+                while (candidateIndex < candidate.Length)
+                {
+                    if (char.ToUpperInvariant(candidate[candidateIndex]) == char.ToUpperInvariant(queryCharacter))
+                    {
+                        matched = true;
+                        candidateIndex++;
+                        break;
+                    }
+
+                    candidateIndex++;
+                }
+
+                if (!matched)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static int GetLevenshteinDistance(string source, string target)
+        {
+            var distances = new int[source.Length + 1, target.Length + 1];
+
+            for (var i = 0; i <= source.Length; i++)
+            {
+                distances[i, 0] = i;
+            }
+
+            for (var j = 0; j <= target.Length; j++)
+            {
+                distances[0, j] = j;
+            }
+
+            for (var i = 1; i <= source.Length; i++)
+            {
+                for (var j = 1; j <= target.Length; j++)
+                {
+                    var cost = source[i - 1] == target[j - 1] ? 0 : 1;
+                    distances[i, j] = Math.Min(
+                        Math.Min(
+                            distances[i - 1, j] + 1,
+                            distances[i, j - 1] + 1),
+                        distances[i - 1, j - 1] + cost);
+                }
+            }
+
+            return distances[source.Length, target.Length];
         }
     }
 }

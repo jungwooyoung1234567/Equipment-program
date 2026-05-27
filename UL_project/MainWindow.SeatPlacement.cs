@@ -36,6 +36,9 @@ namespace UL_project
         private string? _copiedSeatName;
         private string? _copiedTeamName;
         private string? _copiedItemType;
+        private double _copiedItemWidth;
+        private double _copiedItemHeight;
+        private int _copiedItemRotation;
 
         private int _seatCounter = 1;
         private int _lackCounter = 1;
@@ -49,7 +52,7 @@ namespace UL_project
             }
 
             var dragData = new DataObject();
-            dragData.SetData(SeatDragFormat, "Employee Seat");
+            dragData.SetData(SeatDragFormat, "Table");
             DragDrop.DoDragDrop(SeatTemplate, dragData, DragDropEffects.Copy);
         }
 
@@ -61,7 +64,7 @@ namespace UL_project
             }
 
             var dragData = new DataObject();
-            dragData.SetData(LackDragFormat, "Lack");
+            dragData.SetData(LackDragFormat, "Shelf");
             DragDrop.DoDragDrop(LackTemplate, dragData, DragDropEffects.Copy);
         }
 
@@ -80,7 +83,9 @@ namespace UL_project
         private void MapCanvas_DragOver(object sender, DragEventArgs e)
         {
             e.Effects = _currentMode == EditorMode.Place &&
-                (e.Data.GetDataPresent(SeatDragFormat) || e.Data.GetDataPresent(LackDragFormat) || e.Data.GetDataPresent(CartDragFormat))
+                (e.Data.GetDataPresent(SeatDragFormat) ||
+                 e.Data.GetDataPresent(LackDragFormat) ||
+                 e.Data.GetDataPresent(CartDragFormat))
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
             e.Handled = true;
@@ -168,7 +173,7 @@ namespace UL_project
             seat.Child = BuildItemContent(
                 seat,
                 seatInfo.SeatName,
-                "Unassigned",
+                "미지정",
                 16,
                 11,
                 new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2B2112")),
@@ -185,7 +190,7 @@ namespace UL_project
             var lackInfo = new SeatInfo
             {
                 SeatName = title,
-                TeamName = "Shelf"
+                TeamName = "선반"
             };
 
             var lack = new Border
@@ -221,7 +226,7 @@ namespace UL_project
             var cartInfo = new SeatInfo
             {
                 SeatName = title,
-                TeamName = "Cart"
+                TeamName = "카트"
             };
 
             var cart = new Border
@@ -254,7 +259,7 @@ namespace UL_project
 
         private void AttachSeatEvents(Border seat)
         {
-            seat.ToolTip = "0 equipment item(s)";
+            seat.ToolTip = "장비 0개";
             seat.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
             seat.MouseMove += Seat_MouseMove;
             seat.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
@@ -497,21 +502,21 @@ namespace UL_project
 
             var rotateMenuItem = new MenuItem
             {
-                Header = "Rotate 90°",
+                Header = "90도 회전",
                 Tag = seat
             };
             rotateMenuItem.Click += RotateSeatMenuItem_Click;
 
             var deleteMenuItem = new MenuItem
             {
-                Header = "Delete",
+                Header = "삭제",
                 Tag = seat
             };
             deleteMenuItem.Click += DeleteSeatMenuItem_Click;
 
             var resizeMenuItem = new MenuItem
             {
-                Header = "Resize...",
+                Header = "크기 조절...",
                 Tag = seat
             };
             resizeMenuItem.Click += ResizeSeatMenuItem_Click;
@@ -717,14 +722,26 @@ namespace UL_project
             _copiedSeatName = seatInfo.SeatName;
             _copiedTeamName = seatInfo.TeamName;
             _copiedItemType = string.IsNullOrWhiteSpace(_selectedSeat.Uid) ? SeatItemType : _selectedSeat.Uid;
+            _copiedItemWidth = _selectedSeat.Width;
+            _copiedItemHeight = _selectedSeat.Height;
+            _copiedItemRotation = NormalizeSeatAngle(_selectedSeat);
         }
 
         private void PasteSelectedSeatLabel()
         {
-            if (_copiedSeatName is null || _copiedItemType is null || _pasteTargetCanvas is null)
+            if (_copiedSeatName is null || _copiedItemType is null)
             {
                 return;
             }
+
+            var targetCanvas = ActiveMapCanvas;
+            MapScrollViewer.UpdateLayout();
+
+            var viewportWidth = MapScrollViewer.ViewportWidth > 0 ? MapScrollViewer.ViewportWidth : targetCanvas.Width;
+            var viewportHeight = MapScrollViewer.ViewportHeight > 0 ? MapScrollViewer.ViewportHeight : targetCanvas.Height;
+            var targetPoint = new Point(
+                MapScrollViewer.HorizontalOffset + (viewportWidth / 2),
+                MapScrollViewer.VerticalOffset + (viewportHeight / 2));
 
             var newItem = CreateNewItemByType(_copiedItemType);
             if (newItem.Tag is not SeatInfo seatInfo)
@@ -735,14 +752,19 @@ namespace UL_project
             seatInfo.SeatName = _copiedSeatName;
             seatInfo.TeamName = _copiedTeamName ?? string.Empty;
             seatInfo.Equipments.Clear();
+
+            newItem.Width = _copiedItemWidth > 0 ? _copiedItemWidth : newItem.Width;
+            newItem.Height = _copiedItemHeight > 0 ? _copiedItemHeight : newItem.Height;
+            var rotateTransform = GetOrCreateRotateTransform(newItem);
+            rotateTransform.Angle = _copiedItemRotation;
             UpdateSeatDisplay(newItem, seatInfo);
 
-            _pasteTargetCanvas.Children.Add(newItem);
+            targetCanvas.Children.Add(newItem);
             SetSeatPosition(
-                _pasteTargetCanvas,
+                targetCanvas,
                 newItem,
-                _pasteTargetPoint.X - (GetSeatFootprint(newItem).Width / 2),
-                _pasteTargetPoint.Y - (GetSeatFootprint(newItem).Height / 2));
+                targetPoint.X - (GetSeatFootprint(newItem).Width / 2),
+                targetPoint.Y - (GetSeatFootprint(newItem).Height / 2));
 
             SelectSeat(newItem);
         }
@@ -754,7 +776,25 @@ namespace UL_project
 
         private bool IsTextInputFocused()
         {
-            return Keyboard.FocusedElement is TextBox;
+            if (Keyboard.FocusedElement is not DependencyObject focusedElement)
+            {
+                return false;
+            }
+
+            for (DependencyObject? current = focusedElement; current is not null; current = VisualTreeHelper.GetParent(current))
+            {
+                if (current is TextBoxBase)
+                {
+                    return true;
+                }
+
+                if (current is ComboBox comboBox && comboBox.IsEditable)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static (double WidthDelta, double HeightDelta) MapResizeDelta(int angle, double horizontalChange, double verticalChange)

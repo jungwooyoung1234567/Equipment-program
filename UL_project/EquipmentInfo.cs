@@ -9,5 +9,7 @@ namespace UL_project
         public string GlobalNumber { get; set; } = string.Empty;
 
         public string Notes { get; set; } = string.Empty;
+
+        public string PhotoPath { get; set; } = string.Empty;
     }
 }

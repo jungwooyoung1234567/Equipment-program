@@ -41,8 +41,8 @@ namespace UL_project
             InitializeDefaultLayout();
             _preserveExistingLayoutFile = true;
             MessageBox.Show(
-                $"Failed to load the saved layout.\nThe existing layout file was left unchanged so you can recover it manually.\n\n{loadError}",
-                "Load Layout",
+                $"저장된 레이아웃을 불러오지 못했습니다.\n기존 파일은 복구할 수 있도록 그대로 유지했습니다.\n\n{loadError}",
+                "레이아웃 불러오기",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -52,7 +52,7 @@ namespace UL_project
             _mapCanvases.Clear();
             _mapNames.Clear();
             _activeMapIndex = 0;
-            LayoutTitleTextBox.Text = "Research Lab Layout";
+            LayoutTitleTextBox.Text = "연구실 레이아웃";
 
             _mapCanvases.Add(CreateMapCanvas());
             _mapNames.Add(BuildDefaultMapName(1));
@@ -66,7 +66,7 @@ namespace UL_project
                 var layoutState = JsonSerializer.Deserialize<LayoutState>(json, LayoutJsonOptions);
                 if (layoutState is null)
                 {
-                    errorMessage = "The layout file is empty or could not be parsed.";
+                    errorMessage = "레이아웃 파일이 비어 있거나 해석할 수 없습니다.";
                     return false;
                 }
 
@@ -87,7 +87,7 @@ namespace UL_project
             _mapNames.Clear();
 
             LayoutTitleTextBox.Text = string.IsNullOrWhiteSpace(layoutState.LayoutTitle)
-                ? "Research Lab Layout"
+                ? "연구실 레이아웃"
                 : layoutState.LayoutTitle;
 
             foreach (var mapState in layoutState.Maps)
@@ -155,8 +155,8 @@ namespace UL_project
         private void ResetLayoutButton_Click(object sender, RoutedEventArgs e)
         {
             var confirmationResult = MessageBox.Show(
-                "Reset the current layout and overwrite the saved JSON file?",
-                "Reset Layout",
+                "지금 배치한 모든 기구를 지우고 처음 상태로 되돌릴까요?\n저장된 레이아웃 파일도 함께 새로 저장됩니다.",
+                "모든 배치 처음으로 되돌리기",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -178,8 +178,8 @@ namespace UL_project
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to reset layout.\n{ex.Message}",
-                    "Reset Layout",
+                    $"배치를 처음 상태로 되돌리지 못했습니다.\n{ex.Message}",
+                    "모든 배치 처음으로 되돌리기",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -190,7 +190,7 @@ namespace UL_project
             var layoutState = new LayoutState
             {
                 LayoutTitle = string.IsNullOrWhiteSpace(LayoutTitleTextBox.Text)
-                    ? "Research Lab Layout"
+                    ? "연구실 레이아웃"
                     : LayoutTitleTextBox.Text.Trim(),
                 ActiveMapIndex = _activeMapIndex
             };
@@ -242,8 +242,8 @@ namespace UL_project
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to save layout.\n{ex.Message}",
-                    "Save Layout",
+                    $"레이아웃 저장에 실패했습니다.\n{ex.Message}",
+                    "레이아웃 저장",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -300,7 +300,8 @@ namespace UL_project
                         Name = equipment.Name,
                         UlNumber = equipment.UlNumber,
                         GlobalNumber = equipment.GlobalNumber,
-                        Notes = equipment.Notes
+                        Notes = equipment.Notes,
+                        PhotoPath = equipment.PhotoPath
                     })
                     .ToList()
             };

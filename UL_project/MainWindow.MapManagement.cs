@@ -49,8 +49,8 @@ namespace UL_project
             }
 
             var confirmationResult = MessageBox.Show(
-                $"Delete {_mapNames[_activeMapIndex]}? All seats on this map will be removed.",
-                "Delete Map",
+                $"{_mapNames[_activeMapIndex]} 맵을 삭제할까요? 이 맵의 모든 기구가 함께 제거됩니다.",
+                "맵 삭제",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -161,7 +161,7 @@ namespace UL_project
         // 기본 맵 이름을 생성한다.
         private static string BuildDefaultMapName(int mapNumber)
         {
-            return $"Map {mapNumber}";
+            return $"맵 {mapNumber}";
         }
 
         // 맵 이름을 입력받는 간단한 대화상자를 연다.
@@ -169,7 +169,7 @@ namespace UL_project
         {
             var dialog = new Window
             {
-                Title = "Rename Map",
+                Title = "맵 이름 변경",
                 Width = 340,
                 Height = 160,
                 MinWidth = 340,
@@ -190,7 +190,7 @@ namespace UL_project
 
             root.Children.Add(new TextBlock
             {
-                Text = "Map Name",
+                Text = "맵 이름",
                 FontWeight = FontWeights.SemiBold
             });
 
@@ -214,14 +214,14 @@ namespace UL_project
             {
                 Width = 80,
                 Margin = new Thickness(0, 0, 8, 0),
-                Content = "Save",
+                Content = "저장",
                 IsDefault = true
             };
 
             var cancelButton = new Button
             {
                 Width = 80,
-                Content = "Cancel",
+                Content = "취소",
                 IsCancel = true
             };
 

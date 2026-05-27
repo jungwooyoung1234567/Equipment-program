@@ -10,19 +10,16 @@ namespace UL_project
 {
     public partial class MainWindow
     {
-        // 검색으로 강조 중인 좌석을 기억해 중복 애니메이션을 정리한다.
         private Border? _highlightedSeat;
 
-        // 장비 검색창을 열고 선택된 결과가 있으면 해당 좌석으로 이동한다.
         private void FindEquipmentButton_Click(object sender, RoutedEventArgs e)
         {
-            // 검색창을 열기 전에 모든 맵의 장비를 하나의 검색 목록으로 만든다.
             var searchIndex = BuildEquipmentSearchIndex();
             if (searchIndex.Count == 0)
             {
                 MessageBox.Show(
-                    "There is no equipment to search yet.",
-                    "Find Equipment",
+                    "아직 검색할 장비가 없습니다.",
+                    "장비 검색",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
@@ -41,16 +38,14 @@ namespace UL_project
             NavigateToEquipment(findWindow.SelectedResult);
         }
 
-        // 지정한 Seat 또는 Lack의 편집창을 열고 저장 결과를 화면에 반영한다.
         private void OpenSeatEditor(Border seat)
         {
-            // Border.Tag에 저장된 SeatInfo를 편집 대상으로 사용한다.
             if (seat.Tag is not SeatInfo seatInfo)
             {
                 return;
             }
 
-            var editorWindow = new SeatEditorWindow(seatInfo)
+            var editorWindow = new SeatEditorWindow(seatInfo, GetItemTypeDisplayName(seat.Uid))
             {
                 Owner = this
             };
@@ -67,7 +62,6 @@ namespace UL_project
             UpdateSeatDisplay(seat, seatInfo);
         }
 
-        // 모든 맵과 모든 좌석의 장비를 순회해 검색용 목록을 만든다.
         private List<EquipmentSearchResult> BuildEquipmentSearchIndex()
         {
             var results = new List<EquipmentSearchResult>();
@@ -86,7 +80,7 @@ namespace UL_project
 
                     foreach (var equipment in seatInfo.Equipments)
                     {
-                        results.Add(new EquipmentSearchResult(mapIndex, seat, seatInfo, equipment));
+                        results.Add(new EquipmentSearchResult(mapIndex, _mapNames[mapIndex], seat, seatInfo, equipment));
                     }
                 }
             }
@@ -94,7 +88,6 @@ namespace UL_project
             return results;
         }
 
-        // 검색 결과가 가리키는 맵으로 이동한 뒤 해당 좌석 위치를 바로 확인할 수 있게 한다.
         private void NavigateToEquipment(EquipmentSearchResult result)
         {
             CancelSeatDrag();
@@ -104,10 +97,8 @@ namespace UL_project
             StartSeatHighlight(result.Seat);
         }
 
-        // Seat 또는 Lack에 표시되는 이름, 팀, 장비 개수 문구를 갱신한다.
         private void UpdateSeatDisplay(Border seat, SeatInfo seatInfo)
         {
-            // 표시용 텍스트는 StackPanel 안의 두 TextBlock을 직접 수정한다.
             var content = GetSeatContentPanel(seat);
             if (content is null || content.Children.Count < 2)
             {
@@ -121,17 +112,16 @@ namespace UL_project
 
             if (content.Children[1] is TextBlock teamText)
             {
-                var teamLabel = string.IsNullOrWhiteSpace(seatInfo.TeamName) ? "Unassigned" : seatInfo.TeamName;
+                var teamLabel = string.IsNullOrWhiteSpace(seatInfo.TeamName) ? "미지정" : seatInfo.TeamName;
                 var equipmentCount = seatInfo.Equipments.Count;
                 teamText.Text = equipmentCount > 0
-                    ? $"{teamLabel} | Eq {equipmentCount}"
+                    ? $"{teamLabel} | 장비 {equipmentCount}"
                     : teamLabel;
             }
 
-            seat.ToolTip = $"{seatInfo.Equipments.Count} equipment item(s)";
+            seat.ToolTip = $"장비 {seatInfo.Equipments.Count}개";
         }
 
-        // 검색으로 이동한 좌석이 스크롤 영역 안에 들어오도록 위치를 맞춘다.
         private static StackPanel? GetSeatContentPanel(Border seat)
         {
             if (seat.Child is StackPanel directPanel)
@@ -171,7 +161,6 @@ namespace UL_project
             MapScrollViewer.ScrollToVerticalOffset(targetVerticalOffset);
         }
 
-        // 검색으로 찾은 좌석 강조를 시작하고 기존 강조가 있으면 먼저 정리한다.
         private void StartSeatHighlight(Border seat)
         {
             StopSeatHighlight();
@@ -202,7 +191,6 @@ namespace UL_project
             seat.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
         }
 
-        // 현재 강조 중인 좌석 애니메이션을 멈추고 기본 상태로 되돌린다.
         private void StopSeatHighlight()
         {
             if (_highlightedSeat is null)
@@ -224,7 +212,6 @@ namespace UL_project
             _highlightedSeat = null;
         }
 
-        // 강조 애니메이션에 사용할 ScaleTransform을 가져오거나 없으면 새로 만든다.
         private static ScaleTransform GetOrCreateScaleTransform(Border seat)
         {
             seat.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -264,7 +251,6 @@ namespace UL_project
             return scaleOnlyTransform;
         }
 
-        // 현재 항목에 ScaleTransform이 있으면 찾아서 반환한다.
         private static bool TryGetScaleTransform(Border seat, out ScaleTransform? scaleTransform)
         {
             if (seat.RenderTransform is ScaleTransform directScaleTransform)
@@ -287,6 +273,26 @@ namespace UL_project
 
             scaleTransform = null;
             return false;
+        }
+
+        private static string GetItemTypeDisplayName(string? typeId)
+        {
+            if (string.IsNullOrWhiteSpace(typeId) || string.Equals(typeId, SeatItemType, StringComparison.OrdinalIgnoreCase))
+            {
+                return "테이블";
+            }
+
+            if (string.Equals(typeId, LackItemType, StringComparison.OrdinalIgnoreCase))
+            {
+                return "선반";
+            }
+
+            if (string.Equals(typeId, CartItemType, StringComparison.OrdinalIgnoreCase))
+            {
+                return "카트";
+            }
+
+            return typeId ?? string.Empty;
         }
     }
 }
