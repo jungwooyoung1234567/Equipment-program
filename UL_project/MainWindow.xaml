@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UL_project"
         mc:Ignorable="d"
-        Title="랩 맵 편집기"
+        Title="장비 관리 프로그램"
         Height="820"
         Width="1200"
         MinHeight="700"
@@ -22,7 +22,7 @@
                 Background="#1F2A44"
                 CornerRadius="18">
             <StackPanel>
-                <TextBlock Text="맵 도구"
+                <TextBlock Text="장비 관리 프로그램"
                            Foreground="White"
                            FontSize="28"
                            FontWeight="Bold"/>

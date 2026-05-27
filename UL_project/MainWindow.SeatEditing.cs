@@ -11,6 +11,7 @@ namespace UL_project
     public partial class MainWindow
     {
         private Border? _highlightedSeat;
+        private EquipmentSearchResult? _pendingSearchResult;
 
         private void FindEquipmentButton_Click(object sender, RoutedEventArgs e)
         {
@@ -118,7 +119,21 @@ namespace UL_project
             UpdateMapUi();
             BringSeatIntoView(result.Seat);
             StartSeatHighlight(result.Seat);
-            OpenSeatEditor(result.Seat, result.EquipmentIndex);
+            _pendingSearchResult = result;
+        }
+
+        private bool TryOpenPendingSearchResult(Border seat)
+        {
+            if (_pendingSearchResult is null || !ReferenceEquals(_pendingSearchResult.Seat, seat))
+            {
+                return false;
+            }
+
+            var result = _pendingSearchResult;
+            _pendingSearchResult = null;
+            StopSeatHighlight();
+            OpenSeatEditor(seat, result.EquipmentIndex);
+            return true;
         }
 
         private void OpenSeatEditor(Border seat, int selectedEquipmentIndex)

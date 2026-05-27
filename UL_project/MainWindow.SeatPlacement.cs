@@ -315,6 +315,11 @@ namespace UL_project
                 return;
             }
 
+            if (TryOpenPendingSearchResult(seat))
+            {
+                return;
+            }
+
             if (ReferenceEquals(_highlightedSeat, seat))
             {
                 StopSeatHighlight();
