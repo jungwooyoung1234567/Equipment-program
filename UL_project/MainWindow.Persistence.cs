@@ -215,13 +215,97 @@ namespace UL_project
 
             return new EquipmentInfo
             {
-                Name = $"{itemPrefix} Equipment {number:00}",
+                Name = GetSampleEquipmentName(itemPrefix, number),
                 UlNumber = GetNextUlNumber(usedUlNumbers, ref nextUlNumber),
                 GlobalNumber = GetNextGlobalNumber(usedGlobalNumbers, ref nextGlobalNumber),
                 Notes = "Sample data",
                 PhotoPath = string.Empty
             };
         }
+
+        private static string GetSampleEquipmentName(string itemPrefix, int number)
+        {
+            var names = itemPrefix switch
+            {
+                "Shelf" => ShelfSampleEquipmentNames,
+                "Cart" => CartSampleEquipmentNames,
+                _ => BenchSampleEquipmentNames
+            };
+
+            return names[(number - 1) % names.Length];
+        }
+
+        private static readonly string[] BenchSampleEquipmentNames =
+        [
+            "Digital Oscilloscope",
+            "Spectrum Analyzer",
+            "Signal Generator",
+            "DC Power Supply",
+            "Digital Multimeter",
+            "LCR Meter",
+            "Electronic Load",
+            "Function Generator",
+            "Network Analyzer",
+            "Thermal Chamber",
+            "Power Meter",
+            "Frequency Counter",
+            "Data Logger",
+            "Clamp Meter",
+            "Insulation Tester",
+            "Withstand Voltage Tester",
+            "Ground Bond Tester",
+            "Leakage Current Tester",
+            "EMI Test Receiver",
+            "Temperature Recorder"
+        ];
+
+        private static readonly string[] ShelfSampleEquipmentNames =
+        [
+            "BNC Cable Set",
+            "Banana Lead Set",
+            "Current Probe",
+            "Voltage Probe",
+            "Thermocouple Wire",
+            "USB Data Cable",
+            "Calibration Adapter",
+            "Power Cord Set",
+            "Terminal Block",
+            "Fuse Kit",
+            "Connector Kit",
+            "SMA Cable",
+            "RF Attenuator",
+            "Test Fixture",
+            "Alligator Clip Set",
+            "Patch Cable",
+            "Ground Strap",
+            "Probe Tip Set",
+            "Label Cartridge",
+            "Spare Battery Pack"
+        ];
+
+        private static readonly string[] CartSampleEquipmentNames =
+        [
+            "Mobile Test Cart",
+            "Portable Power Analyzer",
+            "Laptop Docking Station",
+            "Barcode Scanner",
+            "Thermal Label Printer",
+            "Portable Monitor",
+            "Battery Charger",
+            "Tool Tray",
+            "Safety Interlock Box",
+            "Portable Light Meter",
+            "Handheld Tachometer",
+            "Inspection Camera",
+            "ESD Wrist Strap Tester",
+            "Portable Scale",
+            "Torque Driver Set",
+            "Wireless Router",
+            "Cable Reel",
+            "Small Parts Organizer",
+            "Emergency Stop Box",
+            "Portable UPS"
+        ];
 
         private static bool TryRegisterUlNumber(string ulNumber, HashSet<string> usedUlNumbers)
         {
