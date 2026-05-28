@@ -5,15 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UL_project"
         mc:Ignorable="d"
-        Title="Lab Map Builder"
+        Title="장비 관리 프로그램"
         Height="820"
         Width="1200"
         MinHeight="700"
-        MinWidth="1000">
-        <Grid Background="#EDEBE4">
+        MinWidth="1180">
+    <Grid Background="#EDEBE4">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300" MinWidth="300"/>
+            <ColumnDefinition Width="*" MinWidth="820"/>
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -21,129 +21,130 @@
                 Padding="18"
                 Background="#1F2A44"
                 CornerRadius="18">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <StackPanel>
+                <TextBlock Text="장비 관리 프로그램"
+                           Foreground="White"
+                           FontSize="23"
+                           FontWeight="Bold"/>
+                <TextBlock Margin="0,8,0,0"
+                           Text="배치 모드에서는 기구를 추가하고 이동할 수 있습니다. 편집 모드에서는 선택한 기구의 속성만 수정합니다."
+                           Foreground="#D7DCE8"
+                           FontSize="14"
+                           TextWrapping="Wrap"/>
 
-                <StackPanel>
-                    <TextBlock Text="Map Tools"
-                               Foreground="White"
-                               FontSize="28"
-                               FontWeight="Bold"/>
-                    <TextBlock Margin="0,8,0,0"
-                               Text="Place mode allows seat creation, movement, and deletion. Edit mode allows property editing only."
-                               Foreground="#D7DCE8"
-                               FontSize="14"
-                               TextWrapping="Wrap"/>
+                <TextBlock Margin="0,24,0,8"
+                           Text="편집 모드"
+                           Foreground="White"
+                           FontSize="16"
+                           FontWeight="SemiBold"/>
 
-                    <TextBlock Margin="0,24,0,8"
-                               Text="Editor Mode"
-                               Foreground="White"
-                               FontSize="16"
-                               FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="PlaceModeButton"
-                                Width="86"
-                                Height="36"
-                                Margin="0,0,8,0"
-                                Content="Place"
-                                Click="PlaceModeButton_Click"/>
-                        <Button x:Name="EditModeButton"
-                                Width="86"
-                                Height="36"
-                                Content="Edit"
-                                Click="EditModeButton_Click"/>
-                    </StackPanel>
+                    <Button x:Name="PlaceModeButton"
+                            Grid.Column="0"
+                            Height="36"
+                            Margin="0,0,6,0"
+                            Content="배치"
+                            Click="PlaceModeButton_Click"/>
+                    <Button x:Name="EditModeButton"
+                            Grid.Column="1"
+                            Height="36"
+                            Margin="3,0,3,0"
+                            Content="편집"
+                            Click="EditModeButton_Click"/>
+                    <Button x:Name="FindEquipmentButton"
+                            Grid.Column="2"
+                            Height="36"
+                            Margin="6,0,0,0"
+                            Content="검색"
+                            Click="FindEquipmentButton_Click"/>
+                </Grid>
 
-                    <TextBlock x:Name="ModeDescriptionText"
-                               Margin="0,10,0,0"
-                               Foreground="#D7DCE8"
-                               FontSize="13"
-                               TextWrapping="Wrap"/>
+                <Button x:Name="ResetLayoutButton"
+                        Height="36"
+                        Margin="0,10,0,0"
+                        Content="모든 배치 처음으로 되돌리기"
+                        Background="#8B2E2E"
+                        Foreground="White"
+                        BorderBrush="#8B2E2E"
+                        Click="ResetLayoutButton_Click"/>
 
-                    <TextBlock Margin="0,24,0,8"
-                               Text="Seat Palette"
-                               Foreground="White"
-                               FontSize="16"
-                               FontWeight="SemiBold"/>
+                <TextBlock x:Name="ModeDescriptionText"
+                           Margin="0,10,0,0"
+                           Foreground="#D7DCE8"
+                           FontSize="13"
+                           TextWrapping="Wrap"/>
 
-                    <Border x:Name="SeatTemplate"
-                            Width="180"
-                            Height="90"
-                            Padding="12"
-                            Background="#F6B73C"
-                            BorderBrush="#8F5A00"
-                            BorderThickness="2"
-                            CornerRadius="14"
-                            Cursor="Hand"
-                            MouseLeftButtonDown="SeatTemplate_MouseLeftButtonDown">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Employee Seat"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       Foreground="#2B2112"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Margin="0,6,0,0"
-                                       Text="Drag to map"
-                                       FontSize="12"
-                                       Foreground="#5C4622"
-                                       HorizontalAlignment="Center"/>
-                            </StackPanel>
-                    </Border>
+                <TextBlock Margin="0,24,0,8"
+                           Text="기구"
+                           Foreground="White"
+                           FontSize="16"
+                           FontWeight="SemiBold"/>
 
-                    <Border x:Name="LackTemplate"
-                            Width="180"
-                            Height="90"
-                            Margin="0,12,0,0"
-                            Padding="12"
-                            Background="#C9D46A"
-                            BorderBrush="#6F7A1E"
-                            BorderThickness="2"
-                            CornerRadius="14"
-                            Cursor="Hand"
-                            MouseLeftButtonDown="LackTemplate_MouseLeftButtonDown">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Lack"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       Foreground="#28310F"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Margin="0,6,0,0"
-                                       Text="Long shelf"
-                                       FontSize="12"
-                                       Foreground="#4B561B"
-                                       HorizontalAlignment="Center"/>
-                            </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <Border x:Name="TrashDropZone"
-                        Grid.Row="1"
-                        Margin="0,18,0,0"
+                <Border x:Name="SeatTemplate"
+                        Width="180"
+                        Height="90"
                         Padding="12"
-                        Background="#4C566F"
-                        BorderBrush="#AAB3C5"
+                        Background="#F6B73C"
+                        BorderBrush="#8F5A00"
                         BorderThickness="2"
-                        CornerRadius="14">
-                    <StackPanel>
-                        <TextBlock Text="Trash"
-                                   Foreground="White"
+                        CornerRadius="14"
+                        Cursor="Hand"
+                        MouseLeftButtonDown="SeatTemplate_MouseLeftButtonDown">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="테이블"
                                    FontSize="18"
                                    FontWeight="Bold"
+                                   Foreground="#2B2112"
                                    HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TrashDescriptionText"
-                                   Margin="0,6,0,0"
-                                   Text="Drag a seat here in Place mode to delete it"
-                                   Foreground="#D7DCE8"
-                                   FontSize="12"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"/>
                     </StackPanel>
                 </Border>
-            </Grid>
+
+                <Border x:Name="LackTemplate"
+                        Width="180"
+                        Height="90"
+                        Margin="0,12,0,0"
+                        Padding="12"
+                        Background="#C9D46A"
+                        BorderBrush="#6F7A1E"
+                        BorderThickness="2"
+                        CornerRadius="14"
+                        Cursor="Hand"
+                        MouseLeftButtonDown="LackTemplate_MouseLeftButtonDown">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="선반"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#28310F"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="CartTemplate"
+                        Width="180"
+                        Height="90"
+                        Margin="0,12,0,0"
+                        Padding="12"
+                        Background="#7FC8F8"
+                        BorderBrush="#1F6FA8"
+                        BorderThickness="2"
+                        CornerRadius="14"
+                        Cursor="Hand"
+                        MouseLeftButtonDown="CartTemplate_MouseLeftButtonDown">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="카트"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#103652"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Border>
 
         <Grid Grid.Column="1" Margin="0,20,20,20">
@@ -160,11 +161,17 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="Research Lab Layout"
-                           FontSize="30"
-                           FontWeight="Bold"
-                           Foreground="#24313F"
-                           VerticalAlignment="Center"/>
+                <TextBox x:Name="LayoutTitleTextBox"
+                         Text="연구실 레이아웃"
+                         FontSize="30"
+                         FontWeight="Bold"
+                         Foreground="#24313F"
+                         VerticalAlignment="Center"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="0"
+                         Margin="0"
+                         MinWidth="260"/>
 
                 <Button x:Name="AddMapButton"
                         Grid.Column="1"
@@ -198,12 +205,20 @@
                        Margin="12,0,0,12"/>
 
             <Border Grid.Row="2"
+                    MinWidth="780"
                     Background="#F8F7F2"
                     BorderBrush="#24313F"
                     BorderThickness="3"
                     CornerRadius="20"
                     Padding="18">
-                <Grid x:Name="MapHost"/>
+                <ScrollViewer x:Name="MapScrollViewer"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              CanContentScroll="False">
+                    <Grid x:Name="MapHost"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Top"/>
+                </ScrollViewer>
             </Border>
         </Grid>
     </Grid>

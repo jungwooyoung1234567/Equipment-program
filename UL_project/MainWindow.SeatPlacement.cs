@@ -1,5 +1,7 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -7,68 +9,83 @@ namespace UL_project
 {
     public partial class MainWindow
     {
-        // DragDrop 데이터 안에서 Seat 템플릿을 구분하기 위한 키.
         private const string SeatDragFormat = "UL_project.SeatTemplate";
-
-        // DragDrop 데이터 안에서 Lack 템플릿을 구분하기 위한 키.
         private const string LackDragFormat = "UL_project.LackTemplate";
+        private const string CartDragFormat = "UL_project.CartTemplate";
 
-        // Seat 기본 크기.
         private const double SeatWidth = 120;
         private const double SeatHeight = 70;
-
-        // Lack는 Seat보다 가로가 3배 길다.
         private const double LackWidth = SeatWidth * 3;
         private const double LackHeight = 70;
+        private const double CartWidth = SeatWidth / 2;
+        private const double CartHeight = SeatHeight;
+        private const double MinimumItemWidth = 40;
+        private const double MinimumItemHeight = 40;
+        private const double ResizeEdgeThreshold = 12;
 
-        // 현재 마우스로 끌고 있는 실제 배치 아이템.
         private Border? _draggingSeat;
-
-        // 아이템 내부에서 어디를 잡았는지 저장해서 드래그 시 점프하지 않게 한다.
+        private Border? _pressedSeat;
+        private Border? _selectedSeat;
+        private Canvas? _pasteTargetCanvas;
+        private bool _isResizingSeat;
         private Point _seatDragOffset;
+        private Point _seatPointerDownPosition;
+        private Point _pasteTargetPoint;
+        private Size _resizeStartFootprint;
 
-        // 새 Seat/Lack 이름을 자동 증가시키기 위한 카운터.
+        private string? _copiedSeatName;
+        private string? _copiedTeamName;
+        private string? _copiedItemType;
+        private double _copiedItemWidth;
+        private double _copiedItemHeight;
+        private int _copiedItemRotation;
+
         private int _seatCounter = 1;
         private int _lackCounter = 1;
-
-        // 휴지통 평상시/강조 색상.
-        private static readonly Brush TrashNormalBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4C566F"));
-        private static readonly Brush TrashHighlightBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C94C4C"));
-        private static readonly Brush TrashNormalBorder = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAB3C5"));
-        private static readonly Brush TrashHighlightBorder = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFE3E3"));
+        private int _cartCounter = 1;
 
         private void SeatTemplate_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Place 모드일 때만 새 Seat를 만들 수 있다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // DragDrop 데이터에 Seat 타입이라는 정보를 담아 끌기 시작한다.
             var dragData = new DataObject();
-            dragData.SetData(SeatDragFormat, "Employee Seat");
+            dragData.SetData(SeatDragFormat, "Table");
             DragDrop.DoDragDrop(SeatTemplate, dragData, DragDropEffects.Copy);
         }
 
         private void LackTemplate_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Place 모드일 때만 새 Lack를 만들 수 있다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // DragDrop 데이터에 Lack 타입이라는 정보를 담아 끌기 시작한다.
             var dragData = new DataObject();
-            dragData.SetData(LackDragFormat, "Lack");
+            dragData.SetData(LackDragFormat, "Shelf");
             DragDrop.DoDragDrop(LackTemplate, dragData, DragDropEffects.Copy);
+        }
+
+        private void CartTemplate_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentMode != EditorMode.Place)
+            {
+                return;
+            }
+
+            var dragData = new DataObject();
+            dragData.SetData(CartDragFormat, "Cart");
+            DragDrop.DoDragDrop(CartTemplate, dragData, DragDropEffects.Copy);
         }
 
         private void MapCanvas_DragOver(object sender, DragEventArgs e)
         {
-            // 현재 끌고 있는 데이터가 Seat 또는 Lack일 때만 드롭 가능 표시를 보여준다.
-            e.Effects = _currentMode == EditorMode.Place && (e.Data.GetDataPresent(SeatDragFormat) || e.Data.GetDataPresent(LackDragFormat))
+            e.Effects = _currentMode == EditorMode.Place &&
+                (e.Data.GetDataPresent(SeatDragFormat) ||
+                 e.Data.GetDataPresent(LackDragFormat) ||
+                 e.Data.GetDataPresent(CartDragFormat))
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
             e.Handled = true;
@@ -76,63 +93,75 @@ namespace UL_project
 
         private void MapCanvas_Drop(object sender, DragEventArgs e)
         {
-            // Edit 모드에서는 맵에 새 아이템을 놓을 수 없다.
             if (_currentMode != EditorMode.Place)
             {
                 return;
             }
 
-            // 드롭 이벤트가 발생한 실제 맵 Canvas와 그 안의 좌표를 구한다.
             var mapCanvas = sender as Canvas ?? ActiveMapCanvas;
             var dropPoint = e.GetPosition(mapCanvas);
 
             if (e.Data.GetDataPresent(SeatDragFormat))
             {
-                // Seat 템플릿이었다면 Seat를 생성한다.
                 AddSeat(mapCanvas, dropPoint);
                 return;
             }
 
             if (e.Data.GetDataPresent(LackDragFormat))
             {
-                // Lack 템플릿이었다면 Lack를 생성한다.
                 AddLack(mapCanvas, dropPoint);
+                return;
+            }
+
+            if (e.Data.GetDataPresent(CartDragFormat))
+            {
+                AddCart(mapCanvas, dropPoint);
             }
         }
 
         private void AddSeat(Canvas mapCanvas, Point dropPoint)
         {
-            // 새 Seat UI 요소를 만들고 드롭된 맵에 추가한다.
             var seat = BuildSeatElement($"Seat {_seatCounter++}");
-
             mapCanvas.Children.Add(seat);
-
-            // 드롭 좌표를 중심으로 아이템이 배치되도록 위치를 보정한다.
             SetSeatPosition(mapCanvas, seat, dropPoint.X - SeatWidth / 2, dropPoint.Y - SeatHeight / 2);
         }
 
         private void AddLack(Canvas mapCanvas, Point dropPoint)
         {
-            // 새 Lack UI 요소를 만들고 드롭된 맵에 추가한다.
             var lack = BuildLackElement($"Lack {_lackCounter++}");
-
             mapCanvas.Children.Add(lack);
             SetSeatPosition(mapCanvas, lack, dropPoint.X - LackWidth / 2, dropPoint.Y - LackHeight / 2);
         }
 
+        private void AddCart(Canvas mapCanvas, Point dropPoint)
+        {
+            var cart = BuildCartElement($"Cart {_cartCounter++}");
+            mapCanvas.Children.Add(cart);
+            SetSeatPosition(mapCanvas, cart, dropPoint.X - CartWidth / 2, dropPoint.Y - CartHeight / 2);
+        }
+
+        private Border CreateNewItemByType(string itemType)
+        {
+            return itemType switch
+            {
+                LackItemType => BuildLackElement($"Lack {_lackCounter++}"),
+                CartItemType => BuildCartElement($"Cart {_cartCounter++}"),
+                _ => BuildSeatElement($"Seat {_seatCounter++}")
+            };
+        }
+
         private Border BuildSeatElement(string title)
         {
-            // 화면에 보이는 Seat와 연결될 데이터 객체.
             var seatInfo = new SeatInfo
             {
                 SeatName = title
             };
 
-            // Seat의 외형 Border를 만든다.
             var seat = new Border
             {
                 Width = SeatWidth,
                 Height = SeatHeight,
+                Uid = SeatItemType,
                 Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F6B73C")),
                 BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8F5A00")),
                 BorderThickness = new Thickness(2),
@@ -141,52 +170,34 @@ namespace UL_project
                 Tag = seatInfo
             };
 
-            // Border 안에 이름/소속을 세로로 쌓아 보여준다.
-            var content = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
+            seat.Child = BuildItemContent(
+                seat,
+                seatInfo.SeatName,
+                "미지정",
+                16,
+                11,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2B2112")),
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5C4622")),
+                wrapTitle: false,
+                titleAlignment: TextAlignment.Center);
 
-            content.Children.Add(new TextBlock
-            {
-                Text = seatInfo.SeatName,
-                FontSize = 16,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2B2112")),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            content.Children.Add(new TextBlock
-            {
-                Text = "Unassigned",
-                FontSize = 11,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5C4622")),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            seat.Child = content;
-            seat.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
-            seat.MouseMove += Seat_MouseMove;
-            seat.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
-
+            AttachSeatEvents(seat);
             return seat;
         }
 
         private Border BuildLackElement(string title)
         {
-            // Lack도 동일하게 데이터 객체를 붙여 관리한다.
             var lackInfo = new SeatInfo
             {
                 SeatName = title,
-                TeamName = "Shelf"
+                TeamName = "선반"
             };
 
-            // Lack는 더 길고 다른 색상으로 만든다.
             var lack = new Border
             {
                 Width = LackWidth,
                 Height = LackHeight,
+                Uid = LackItemType,
                 Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C9D46A")),
                 BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6F7A1E")),
                 BorderThickness = new Thickness(2),
@@ -195,7 +206,79 @@ namespace UL_project
                 Tag = lackInfo
             };
 
-            // Lack도 이름과 분류 텍스트를 화면에 표시한다.
+            lack.Child = BuildItemContent(
+                lack,
+                lackInfo.SeatName,
+                lackInfo.TeamName,
+                16,
+                11,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#28310F")),
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4B561B")),
+                wrapTitle: false,
+                titleAlignment: TextAlignment.Center);
+
+            AttachSeatEvents(lack);
+            return lack;
+        }
+
+        private Border BuildCartElement(string title)
+        {
+            var cartInfo = new SeatInfo
+            {
+                SeatName = title,
+                TeamName = "카트"
+            };
+
+            var cart = new Border
+            {
+                Width = CartWidth,
+                Height = CartHeight,
+                Uid = CartItemType,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7FC8F8")),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1F6FA8")),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(12),
+                Cursor = Cursors.SizeAll,
+                Tag = cartInfo
+            };
+
+            cart.Child = BuildItemContent(
+                cart,
+                cartInfo.SeatName,
+                cartInfo.TeamName,
+                12,
+                10,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#103652")),
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#24506F")),
+                wrapTitle: true,
+                titleAlignment: TextAlignment.Center);
+
+            AttachSeatEvents(cart);
+            return cart;
+        }
+
+        private void AttachSeatEvents(Border seat)
+        {
+            seat.ToolTip = "장비 0개";
+            seat.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
+            seat.MouseMove += Seat_MouseMove;
+            seat.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
+            seat.MouseRightButtonUp += Seat_MouseRightButtonUp;
+        }
+
+        private Grid BuildItemContent(
+            Border seat,
+            string title,
+            string subtitle,
+            double titleFontSize,
+            double subtitleFontSize,
+            Brush titleForeground,
+            Brush subtitleForeground,
+            bool wrapTitle,
+            TextAlignment titleAlignment)
+        {
+            var root = new Grid();
+
             var content = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
@@ -204,127 +287,176 @@ namespace UL_project
 
             content.Children.Add(new TextBlock
             {
-                Text = lackInfo.SeatName,
-                FontSize = 16,
+                Text = title,
+                FontSize = titleFontSize,
                 FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#28310F")),
-                HorizontalAlignment = HorizontalAlignment.Center
+                Foreground = titleForeground,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextWrapping = wrapTitle ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                TextAlignment = titleAlignment
             });
 
             content.Children.Add(new TextBlock
             {
-                Text = lackInfo.TeamName,
-                FontSize = 11,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4B561B")),
+                Text = subtitle,
+                FontSize = subtitleFontSize,
+                Foreground = subtitleForeground,
                 HorizontalAlignment = HorizontalAlignment.Center
             });
 
-            lack.Child = content;
-            lack.MouseLeftButtonDown += Seat_MouseLeftButtonDown;
-            lack.MouseMove += Seat_MouseMove;
-            lack.MouseLeftButtonUp += Seat_MouseLeftButtonUp;
-
-            return lack;
+            root.Children.Add(content);
+            return root;
         }
 
         private void Seat_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // 실제 배치된 아이템만 드래그/편집 대상이 된다.
             if (sender is not Border seat)
             {
                 return;
             }
 
-            if (_currentMode == EditorMode.Edit)
+            if (TryOpenPendingSearchResult(seat))
             {
-                // Edit 모드에서는 더블클릭 시 편집 창을 연다.
-                if (e.ClickCount == 2)
-                {
-                    OpenSeatEditor(seat);
-                }
-
                 return;
             }
 
-            // Place 모드에서는 드래그를 시작한다.
-            _draggingSeat = seat;
-            _seatDragOffset = e.GetPosition(seat);
-            seat.CaptureMouse();
+            if (ReferenceEquals(_highlightedSeat, seat))
+            {
+                StopSeatHighlight();
+            }
 
-            // 끌고 있는 동안 가장 위에 보이도록 ZIndex를 올린다.
-            Panel.SetZIndex(seat, 1000);
+            SelectSeat(seat);
+
+            if (_currentMode == EditorMode.Edit)
+            {
+                OpenSeatEditor(seat);
+                return;
+            }
+
+            _pressedSeat = seat;
+            var seatCanvas = GetSeatCanvas(seat);
+            if (seatCanvas is null)
+            {
+                return;
+            }
+
+            var pointerPosition = e.GetPosition(seatCanvas);
+            if (IsResizeHit(seat, e.GetPosition(seat)))
+            {
+                _pressedSeat = seat;
+                _isResizingSeat = true;
+                _seatPointerDownPosition = pointerPosition;
+                _resizeStartFootprint = GetSeatFootprint(seat);
+                seat.CaptureMouse();
+                return;
+            }
+
+            _seatDragOffset = new Point(
+                pointerPosition.X - Canvas.GetLeft(seat),
+                pointerPosition.Y - Canvas.GetTop(seat));
+            _seatPointerDownPosition = pointerPosition;
+            seat.CaptureMouse();
         }
 
         private void Seat_MouseMove(object sender, MouseEventArgs e)
         {
-            // Place 모드 + 마우스 누름 + 드래그 대상이 있을 때만 이동시킨다.
-            if (_currentMode != EditorMode.Place || _draggingSeat is null || e.LeftButton != MouseButtonState.Pressed)
+            if (_currentMode != EditorMode.Place || _pressedSeat is null || e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
             }
 
-            // 현재 아이템이 올라가 있는 맵 Canvas를 찾는다.
+            if (_isResizingSeat)
+            {
+                var resizeSeatCanvas = GetSeatCanvas(_pressedSeat);
+                if (resizeSeatCanvas is null)
+                {
+                    return;
+                }
+
+                var currentPosition = e.GetPosition(resizeSeatCanvas);
+                ResizeSeatByDelta(
+                    _pressedSeat,
+                    currentPosition.X - _seatPointerDownPosition.X,
+                    currentPosition.Y - _seatPointerDownPosition.Y,
+                    _resizeStartFootprint);
+                return;
+            }
+
+            if (_draggingSeat is null)
+            {
+                var pressedSeatCanvas = GetSeatCanvas(_pressedSeat);
+                if (pressedSeatCanvas is null)
+                {
+                    return;
+                }
+
+                var currentPosition = e.GetPosition(pressedSeatCanvas);
+                var horizontalDistance = Math.Abs(currentPosition.X - _seatPointerDownPosition.X);
+                var verticalDistance = Math.Abs(currentPosition.Y - _seatPointerDownPosition.Y);
+
+                if (horizontalDistance < SystemParameters.MinimumHorizontalDragDistance &&
+                    verticalDistance < SystemParameters.MinimumVerticalDragDistance)
+                {
+                    return;
+                }
+
+                _draggingSeat = _pressedSeat;
+                Panel.SetZIndex(_draggingSeat, 1000);
+            }
+
             var seatCanvas = GetSeatCanvas(_draggingSeat);
             if (seatCanvas is null)
             {
                 return;
             }
 
-            // 현재 마우스 좌표에 맞춰 아이템 위치를 갱신한다.
             var position = e.GetPosition(seatCanvas);
             SetSeatPosition(seatCanvas, _draggingSeat, position.X - _seatDragOffset.X, position.Y - _seatDragOffset.Y);
-
-            // 마우스가 휴지통 위인지 검사해 강조 상태를 바꾼다.
-            UpdateTrashDropZoneState(IsPointerOverTrash(e));
         }
 
         private void Seat_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            // 드래그 중이 아니면 아무 것도 하지 않는다.
-            if (_draggingSeat is null)
+            if (_pressedSeat is null)
             {
                 return;
             }
 
-            // Release 전에 참조를 잠시 보관해둔다.
-            var seatToRelease = _draggingSeat;
+            _pressedSeat.ReleaseMouseCapture();
+            _isResizingSeat = false;
 
-            // Place 모드에서 휴지통 위에 놓였는지 먼저 판단한다.
-            var shouldDeleteSeat = _currentMode == EditorMode.Place && IsPointerOverTrash(e);
-
-            // 드래그 상태를 종료한다.
-            _draggingSeat.ReleaseMouseCapture();
-            Panel.SetZIndex(seatToRelease, 0);
-            _draggingSeat = null;
-            ResetTrashDropZoneAppearance();
-
-            if (shouldDeleteSeat)
+            if (_draggingSeat is not null)
             {
-                // 휴지통 위였다면 현재 맵에서 아이템을 제거한다.
-                GetSeatCanvas(seatToRelease)?.Children.Remove(seatToRelease);
+                Panel.SetZIndex(_draggingSeat, 0);
             }
+
+            _pressedSeat = null;
+            _draggingSeat = null;
         }
 
         private void CancelSeatDrag()
         {
-            // 드래그 중인 항목이 없으면 정리할 것도 없다.
-            if (_draggingSeat is null)
+            if (_pressedSeat is null)
             {
                 return;
             }
 
-            // 마우스 캡처와 강조 상태를 정리해 드래그를 강제로 끝낸다.
-            _draggingSeat.ReleaseMouseCapture();
-            Panel.SetZIndex(_draggingSeat, 0);
+            _pressedSeat.ReleaseMouseCapture();
+            _isResizingSeat = false;
+
+            if (_draggingSeat is not null)
+            {
+                Panel.SetZIndex(_draggingSeat, 0);
+            }
+
+            _pressedSeat = null;
             _draggingSeat = null;
-            ResetTrashDropZoneAppearance();
         }
 
         private void SetSeatPosition(Canvas mapCanvas, Border seat, double left, double top)
         {
-            // 아이템이 맵 밖으로 나가지 않도록 좌표를 경계 안으로 제한한다.
-            var boundedLeft = Math.Max(0, Math.Min(mapCanvas.Width - seat.Width, left));
-            var boundedTop = Math.Max(0, Math.Min(mapCanvas.Height - seat.Height, top));
+            var footprint = GetSeatFootprint(seat);
+            var boundedLeft = Math.Max(0, Math.Min(mapCanvas.Width - footprint.Width, left));
+            var boundedTop = Math.Max(0, Math.Min(mapCanvas.Height - footprint.Height, top));
 
             Canvas.SetLeft(seat, boundedLeft);
             Canvas.SetTop(seat, boundedTop);
@@ -332,35 +464,402 @@ namespace UL_project
 
         private static Canvas? GetSeatCanvas(Border seat)
         {
-            // 현재 아이템이 어느 Canvas에 들어있는지 찾는다.
             return seat.Parent as Canvas;
         }
 
-        private bool IsPointerOverTrash(MouseEventArgs e)
+        private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // 포인터 위치를 MainWindow 좌표계 기준으로 구한다.
-            var pointerPosition = e.GetPosition(this);
+            if (sender is not Canvas mapCanvas || e.OriginalSource is not Canvas)
+            {
+                return;
+            }
 
-            // 휴지통 Border의 실제 화면 영역을 계산한다.
-            var trashBounds = TrashDropZone.TransformToAncestor(this)
-                .TransformBounds(new Rect(0, 0, TrashDropZone.ActualWidth, TrashDropZone.ActualHeight));
-
-            // 현재 포인터가 휴지통 영역 안에 있는지 반환한다.
-            return trashBounds.Contains(pointerPosition);
+            _pasteTargetCanvas = mapCanvas;
+            _pasteTargetPoint = e.GetPosition(mapCanvas);
+            _selectedSeat = null;
         }
 
-        private void UpdateTrashDropZoneState(bool isPointerOverTrash)
+        private void Seat_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
-            // 휴지통 위에 올라왔으면 강조 색으로, 아니면 기본 색으로 보여준다.
-            TrashDropZone.Background = isPointerOverTrash ? TrashHighlightBackground : TrashNormalBackground;
-            TrashDropZone.BorderBrush = isPointerOverTrash ? TrashHighlightBorder : TrashNormalBorder;
+            if (_currentMode != EditorMode.Place || sender is not Border seat)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(_highlightedSeat, seat))
+            {
+                StopSeatHighlight();
+            }
+
+            SelectSeat(seat);
+            CancelSeatDrag();
+            ShowSeatActionsMenu(seat);
+            e.Handled = true;
         }
 
-        private void ResetTrashDropZoneAppearance()
+        private void ShowSeatActionsMenu(Border seat)
         {
-            // 드래그가 끝나면 휴지통 색을 항상 기본 상태로 되돌린다.
-            TrashDropZone.Background = TrashNormalBackground;
-            TrashDropZone.BorderBrush = TrashNormalBorder;
+            var contextMenu = new ContextMenu
+            {
+                PlacementTarget = seat,
+                Placement = PlacementMode.MousePoint
+            };
+
+            var rotateMenuItem = new MenuItem
+            {
+                Header = "90도 회전",
+                Tag = seat
+            };
+            rotateMenuItem.Click += RotateSeatMenuItem_Click;
+
+            var deleteMenuItem = new MenuItem
+            {
+                Header = "삭제",
+                Tag = seat
+            };
+            deleteMenuItem.Click += DeleteSeatMenuItem_Click;
+
+            var resizeMenuItem = new MenuItem
+            {
+                Header = "크기 조절...",
+                Tag = seat
+            };
+            resizeMenuItem.Click += ResizeSeatMenuItem_Click;
+
+            contextMenu.Items.Add(rotateMenuItem);
+            contextMenu.Items.Add(resizeMenuItem);
+            contextMenu.Items.Add(deleteMenuItem);
+            contextMenu.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(seat.ContextMenu, contextMenu))
+                {
+                    seat.ContextMenu = null;
+                }
+            };
+
+            seat.ContextMenu = contextMenu;
+            contextMenu.IsOpen = true;
+        }
+
+        private void RotateSeatMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem menuItem || menuItem.Tag is not Border seat)
+            {
+                return;
+            }
+
+            RotateSeat(seat);
+        }
+
+        private void DeleteSeatMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem menuItem || menuItem.Tag is not Border seat)
+            {
+                return;
+            }
+
+            var confirmationResult = MessageBox.Show(
+                "선택한 기구를 삭제하시겠습니까?\n기구에 등록된 장비 정보도 함께 제거됩니다.",
+                "기구 삭제",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirmationResult != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(_selectedSeat, seat))
+            {
+                _selectedSeat = null;
+            }
+
+            GetSeatCanvas(seat)?.Children.Remove(seat);
+        }
+
+        private void ResizeSeatMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem menuItem || menuItem.Tag is not Border seat)
+            {
+                return;
+            }
+
+            OpenResizeDialog(seat);
+        }
+
+        private void RotateSeat(Border seat)
+        {
+            var mapCanvas = GetSeatCanvas(seat);
+            if (mapCanvas is null)
+            {
+                return;
+            }
+
+            var currentFootprint = GetSeatFootprint(seat);
+            var rotateTransform = GetOrCreateRotateTransform(seat);
+            var currentLeft = Canvas.GetLeft(seat);
+            var currentTop = Canvas.GetTop(seat);
+            var centerX = currentLeft + (currentFootprint.Width / 2);
+            var centerY = currentTop + (currentFootprint.Height / 2);
+            rotateTransform.Angle = (rotateTransform.Angle + 90) % 360;
+
+            var rotatedFootprint = GetSeatFootprint(seat);
+            SetSeatPosition(mapCanvas, seat, centerX - (rotatedFootprint.Width / 2), centerY - (rotatedFootprint.Height / 2));
+        }
+
+        private void OpenResizeDialog(Border seat)
+        {
+            var currentSize = GetSeatFootprint(seat);
+            var resizeWindow = new SeatSizeWindow(currentSize.Width, currentSize.Height)
+            {
+                Owner = this
+            };
+
+            if (resizeWindow.ShowDialog() != true)
+            {
+                return;
+            }
+
+            ResizeSeatTo(seat, resizeWindow.ItemWidth, resizeWindow.ItemHeight);
+        }
+
+        private void ResizeSeatTo(Border seat, double targetWidth, double targetHeight)
+        {
+            var mapCanvas = GetSeatCanvas(seat);
+            if (mapCanvas is null)
+            {
+                return;
+            }
+
+            var previousFootprint = GetSeatFootprint(seat);
+            var centerX = Canvas.GetLeft(seat) + (previousFootprint.Width / 2);
+            var centerY = Canvas.GetTop(seat) + (previousFootprint.Height / 2);
+            var angle = NormalizeSeatAngle(seat);
+            var boundedWidth = Math.Max(MinimumItemWidth, targetWidth);
+            var boundedHeight = Math.Max(MinimumItemHeight, targetHeight);
+
+            if (angle is 90 or 270)
+            {
+                seat.Width = boundedHeight;
+                seat.Height = boundedWidth;
+            }
+            else
+            {
+                seat.Width = boundedWidth;
+                seat.Height = boundedHeight;
+            }
+
+            var resizedFootprint = GetSeatFootprint(seat);
+            SetSeatPosition(mapCanvas, seat, centerX - (resizedFootprint.Width / 2), centerY - (resizedFootprint.Height / 2));
+        }
+
+        private void ResizeSeatByDelta(Border seat, double horizontalChange, double verticalChange, Size startFootprint)
+        {
+            var angle = NormalizeSeatAngle(seat);
+            var resizeSensitivity = GetResizeSensitivity(startFootprint);
+            var (widthDelta, heightDelta) = MapResizeDelta(
+                angle,
+                horizontalChange * resizeSensitivity,
+                verticalChange * resizeSensitivity);
+            var maxDragSize = GetMaximumDragResizeSize(seat);
+
+            ResizeSeatTo(
+                seat,
+                Math.Min(maxDragSize.Width, startFootprint.Width + widthDelta),
+                Math.Min(maxDragSize.Height, startFootprint.Height + heightDelta));
+        }
+
+        private static RotateTransform GetOrCreateRotateTransform(Border seat)
+        {
+            if (seat.LayoutTransform is RotateTransform existingRotateTransform)
+            {
+                return existingRotateTransform;
+            }
+
+            var rotateOnlyTransform = new RotateTransform(0);
+            seat.LayoutTransform = rotateOnlyTransform;
+            return rotateOnlyTransform;
+        }
+
+        private static Size GetSeatFootprint(Border seat)
+        {
+            var angle = NormalizeSeatAngle(seat);
+            var isQuarterTurn = angle is 90 or 270;
+            return isQuarterTurn
+                ? new Size(seat.Height, seat.Width)
+                : new Size(seat.Width, seat.Height);
+        }
+
+        private static int NormalizeSeatAngle(Border seat)
+        {
+            double angle = 0;
+
+            if (seat.LayoutTransform is RotateTransform rotateTransform)
+            {
+                angle = rotateTransform.Angle;
+            }
+
+            return ((int)Math.Round(angle) % 360 + 360) % 360;
+        }
+
+        private void UpdateResizeHandleVisibility()
+        {
+            // Drag resize now uses the outer edge of the shape instead of a visible handle.
+        }
+
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == 0 || IsTextInputFocused())
+            {
+                return;
+            }
+
+            if (e.Key == Key.C)
+            {
+                CopySelectedSeatLabel();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.V)
+            {
+                PasteSelectedSeatLabel();
+                e.Handled = true;
+            }
+        }
+
+        private void CopySelectedSeatLabel()
+        {
+            if (_selectedSeat?.Tag is not SeatInfo seatInfo)
+            {
+                return;
+            }
+
+            _copiedSeatName = seatInfo.SeatName;
+            _copiedTeamName = seatInfo.TeamName;
+            _copiedItemType = string.IsNullOrWhiteSpace(_selectedSeat.Uid) ? SeatItemType : _selectedSeat.Uid;
+            _copiedItemWidth = _selectedSeat.Width;
+            _copiedItemHeight = _selectedSeat.Height;
+            _copiedItemRotation = NormalizeSeatAngle(_selectedSeat);
+        }
+
+        private void PasteSelectedSeatLabel()
+        {
+            if (_copiedSeatName is null || _copiedItemType is null)
+            {
+                return;
+            }
+
+            var targetCanvas = ActiveMapCanvas;
+            MapScrollViewer.UpdateLayout();
+
+            var viewportWidth = MapScrollViewer.ViewportWidth > 0 ? MapScrollViewer.ViewportWidth : targetCanvas.Width;
+            var viewportHeight = MapScrollViewer.ViewportHeight > 0 ? MapScrollViewer.ViewportHeight : targetCanvas.Height;
+            var targetPoint = new Point(
+                MapScrollViewer.HorizontalOffset + (viewportWidth / 2),
+                MapScrollViewer.VerticalOffset + (viewportHeight / 2));
+
+            var newItem = CreateNewItemByType(_copiedItemType);
+            if (newItem.Tag is not SeatInfo seatInfo)
+            {
+                return;
+            }
+
+            seatInfo.SeatName = _copiedSeatName;
+            seatInfo.TeamName = _copiedTeamName ?? string.Empty;
+            seatInfo.Equipments.Clear();
+
+            newItem.Width = _copiedItemWidth > 0 ? _copiedItemWidth : newItem.Width;
+            newItem.Height = _copiedItemHeight > 0 ? _copiedItemHeight : newItem.Height;
+            var rotateTransform = GetOrCreateRotateTransform(newItem);
+            rotateTransform.Angle = _copiedItemRotation;
+            UpdateSeatDisplay(newItem, seatInfo);
+
+            targetCanvas.Children.Add(newItem);
+            SetSeatPosition(
+                targetCanvas,
+                newItem,
+                targetPoint.X - (GetSeatFootprint(newItem).Width / 2),
+                targetPoint.Y - (GetSeatFootprint(newItem).Height / 2));
+
+            SelectSeat(newItem);
+        }
+
+        private void SelectSeat(Border seat)
+        {
+            _selectedSeat = seat;
+        }
+
+        private bool IsTextInputFocused()
+        {
+            if (Keyboard.FocusedElement is not DependencyObject focusedElement)
+            {
+                return false;
+            }
+
+            for (DependencyObject? current = focusedElement; current is not null; current = VisualTreeHelper.GetParent(current))
+            {
+                if (current is TextBoxBase)
+                {
+                    return true;
+                }
+
+                if (current is ComboBox comboBox && comboBox.IsEditable)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static (double WidthDelta, double HeightDelta) MapResizeDelta(int angle, double horizontalChange, double verticalChange)
+        {
+            return angle switch
+            {
+                90 => (verticalChange, -horizontalChange),
+                180 => (-horizontalChange, -verticalChange),
+                270 => (-verticalChange, horizontalChange),
+                _ => (horizontalChange, verticalChange)
+            };
+        }
+
+        private static double GetResizeSensitivity(Size footprint)
+        {
+            var shorterEdge = Math.Max(1, Math.Min(footprint.Width, footprint.Height));
+            var aspectRatio = Math.Max(footprint.Width, footprint.Height) / shorterEdge;
+
+            if (aspectRatio >= 4)
+            {
+                return 0.08;
+            }
+
+            if (aspectRatio >= 2)
+            {
+                return 0.12;
+            }
+
+            return 0.18;
+        }
+
+        private static bool IsResizeHit(Border seat, Point localPosition)
+        {
+            var width = Math.Max(seat.ActualWidth, seat.Width);
+            var height = Math.Max(seat.ActualHeight, seat.Height);
+            return localPosition.X <= ResizeEdgeThreshold ||
+                localPosition.X >= width - ResizeEdgeThreshold ||
+                localPosition.Y <= ResizeEdgeThreshold ||
+                localPosition.Y >= height - ResizeEdgeThreshold;
+        }
+
+        private static Size GetMaximumDragResizeSize(Border seat)
+        {
+            return seat.Uid switch
+            {
+                LackItemType => new Size(520, 220),
+                CartItemType => new Size(180, 180),
+                _ => new Size(260, 180)
+            };
         }
     }
 }
