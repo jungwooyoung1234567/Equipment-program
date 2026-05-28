@@ -528,6 +528,7 @@ namespace UL_project
                     .Select(equipment => new EquipmentInfo
                     {
                         Name = equipment.Name,
+                        EquipmentType = equipment.EquipmentType,
                         UlNumber = equipment.UlNumber,
                         GlobalNumber = equipment.GlobalNumber,
                         Notes = equipment.Notes,

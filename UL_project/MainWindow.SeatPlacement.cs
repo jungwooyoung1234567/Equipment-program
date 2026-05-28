@@ -558,6 +558,17 @@ namespace UL_project
                 return;
             }
 
+            var confirmationResult = MessageBox.Show(
+                "선택한 기구를 삭제하시겠습니까?\n기구에 등록된 장비 정보도 함께 제거됩니다.",
+                "기구 삭제",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirmationResult != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
             if (ReferenceEquals(_selectedSeat, seat))
             {
                 _selectedSeat = null;

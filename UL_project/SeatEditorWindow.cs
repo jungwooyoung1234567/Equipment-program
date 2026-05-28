@@ -18,6 +18,9 @@ namespace UL_project
     internal sealed class SeatEditorWindow : Window
     {
         private const int MaxEquipmentCount = 100;
+        private const string DefaultEquipmentType = "주장비";
+        private const string SecondaryEquipmentType = "보조장비";
+        private static readonly string[] EquipmentTypeOptions = [DefaultEquipmentType, SecondaryEquipmentType];
 
         private readonly TextBox _nameTextBox;
         private readonly TextBox _teamTextBox;
@@ -26,9 +29,11 @@ namespace UL_project
         private readonly DataGrid _equipmentGrid;
         private readonly TextBlock _equipmentCountText;
         private readonly int _initialEquipmentIndex;
+        private CheckBox? _selectAllCheckBox;
         private Point _dragSelectionStartPoint;
         private bool _hasPendingDragSelection;
         private bool _isDraggingSelection;
+        private bool _isUpdatingSelectAllCheckBox;
         private int _dragSelectionStartIndex = -1;
 
         public string SeatName => _nameTextBox.Text.Trim();
@@ -176,7 +181,7 @@ namespace UL_project
             var removeButton = new Button
             {
                 Width = 120,
-                Content = "선택 삭제"
+                Content = "장비삭제"
             };
             removeButton.Click += RemoveSelectedButton_Click;
 
@@ -270,10 +275,11 @@ namespace UL_project
             grid.PreviewMouseLeftButtonUp += EquipmentGrid_PreviewMouseLeftButtonUp;
             grid.LostMouseCapture += EquipmentGrid_LostMouseCapture;
             grid.PreviewKeyDown += EquipmentGrid_PreviewKeyDown;
+            grid.SelectionChanged += EquipmentGrid_SelectionChanged;
 
             grid.Columns.Add(new DataGridTextColumn
             {
-                Header = "번호",
+                Header = BuildSelectAllHeader(),
                 Binding = new Binding(nameof(EquipmentDraft.DisplayNumber)),
                 Width = new DataGridLength(58),
                 IsReadOnly = true
@@ -284,24 +290,47 @@ namespace UL_project
                 Binding = new Binding(nameof(EquipmentDraft.Name)),
                 Width = new DataGridLength(1.2, DataGridLengthUnitType.Star)
             });
+            grid.Columns.Add(new DataGridComboBoxColumn
+            {
+                Header = "장비구분",
+                ItemsSource = EquipmentTypeOptions,
+                SelectedItemBinding = new Binding(nameof(EquipmentDraft.EquipmentType))
+                {
+                    Mode = BindingMode.TwoWay,
+                    UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                },
+                Width = new DataGridLength(110)
+            });
             grid.Columns.Add(new DataGridTextColumn
             {
                 Header = "UL 번호",
                 Binding = new Binding(nameof(EquipmentDraft.UlNumber)),
-                Width = new DataGridLength(0.95, DataGridLengthUnitType.Star)
+                Width = new DataGridLength(0.7, DataGridLengthUnitType.Star)
             });
             grid.Columns.Add(new DataGridTextColumn
             {
                 Header = "Global 번호",
                 Binding = new Binding(nameof(EquipmentDraft.GlobalNumber)),
-                Width = new DataGridLength(0.95, DataGridLengthUnitType.Star)
+                Width = new DataGridLength(0.7, DataGridLengthUnitType.Star)
             });
             grid.Columns.Add(BuildNotesColumn());
-            grid.Columns.Add(BuildPhotoAddColumn());
-            grid.Columns.Add(BuildPhotoViewColumn());
-            grid.Columns.Add(BuildPhotoDeleteColumn());
+            grid.Columns.Add(BuildPhotoManageColumn());
 
             return grid;
+        }
+
+        private CheckBox BuildSelectAllHeader()
+        {
+            _selectAllCheckBox = new CheckBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsThreeState = true,
+                ToolTip = "전체 장비 선택/해제"
+            };
+            _selectAllCheckBox.Click += SelectAllCheckBox_Click;
+
+            return _selectAllCheckBox;
         }
 
         private DataGridTemplateColumn BuildNotesColumn()
@@ -323,7 +352,7 @@ namespace UL_project
             return new DataGridTemplateColumn
             {
                 Header = "비고",
-                Width = new DataGridLength(1.3, DataGridLengthUnitType.Star),
+                Width = new DataGridLength(1.8, DataGridLengthUnitType.Star),
                 CellTemplate = new DataTemplate
                 {
                     VisualTree = textBoxFactory
@@ -335,62 +364,20 @@ namespace UL_project
             };
         }
 
-        private DataGridTemplateColumn BuildPhotoAddColumn()
+        private DataGridTemplateColumn BuildPhotoManageColumn()
         {
             var buttonFactory = new FrameworkElementFactory(typeof(Button));
-            buttonFactory.SetValue(Button.WidthProperty, 50d);
+            buttonFactory.SetValue(Button.WidthProperty, 48d);
             buttonFactory.SetValue(Button.HeightProperty, 28d);
             buttonFactory.SetValue(Button.MarginProperty, new Thickness(0));
-            buttonFactory.SetValue(Button.ContentProperty, "추가");
+            buttonFactory.SetBinding(ContentControl.ContentProperty, new Binding(nameof(EquipmentDraft.PhotoButtonText)));
             buttonFactory.SetBinding(FrameworkElement.TagProperty, new Binding());
-            buttonFactory.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(AddPhotoButton_Click));
+            buttonFactory.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(ManagePhotoButton_Click));
 
             return new DataGridTemplateColumn
             {
-                Header = "추가",
-                Width = new DataGridLength(62),
-                CellTemplate = new DataTemplate
-                {
-                    VisualTree = buttonFactory
-                }
-            };
-        }
-
-        private DataGridTemplateColumn BuildPhotoViewColumn()
-        {
-            var buttonFactory = new FrameworkElementFactory(typeof(Button));
-            buttonFactory.SetValue(Button.WidthProperty, 50d);
-            buttonFactory.SetValue(Button.HeightProperty, 28d);
-            buttonFactory.SetBinding(FrameworkElement.TagProperty, new Binding());
-            buttonFactory.SetBinding(UIElement.IsEnabledProperty, new Binding(nameof(EquipmentDraft.HasPhoto)));
-            buttonFactory.SetValue(Button.ContentProperty, "보기");
-            buttonFactory.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(ViewPhotoButton_Click));
-
-            return new DataGridTemplateColumn
-            {
-                Header = "보기",
-                Width = new DataGridLength(62),
-                CellTemplate = new DataTemplate
-                {
-                    VisualTree = buttonFactory
-                }
-            };
-        }
-
-        private DataGridTemplateColumn BuildPhotoDeleteColumn()
-        {
-            var buttonFactory = new FrameworkElementFactory(typeof(Button));
-            buttonFactory.SetValue(Button.WidthProperty, 50d);
-            buttonFactory.SetValue(Button.HeightProperty, 28d);
-            buttonFactory.SetBinding(FrameworkElement.TagProperty, new Binding());
-            buttonFactory.SetBinding(UIElement.IsEnabledProperty, new Binding(nameof(EquipmentDraft.HasPhoto)));
-            buttonFactory.SetValue(Button.ContentProperty, "삭제");
-            buttonFactory.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(DeletePhotoButton_Click));
-
-            return new DataGridTemplateColumn
-            {
-                Header = "삭제",
-                Width = new DataGridLength(62),
+                Header = "사진",
+                Width = new DataGridLength(64),
                 CellTemplate = new DataTemplate
                 {
                     VisualTree = buttonFactory
@@ -422,13 +409,18 @@ namespace UL_project
             RemoveSelectedEquipmentRows();
         }
 
-        private void AddPhotoButton_Click(object sender, RoutedEventArgs e)
+        private void ManagePhotoButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement element || element.Tag is not EquipmentDraft draft)
             {
                 return;
             }
 
+            ShowPhotoManagementWindow(draft);
+        }
+
+        private void AddPhotoToDraft(EquipmentDraft draft)
+        {
             var dialog = new OpenFileDialog
             {
                 Title = "사진 선택",
@@ -445,34 +437,121 @@ namespace UL_project
             draft.PhotoPath = dialog.FileName;
         }
 
-        private void ViewPhotoButton_Click(object sender, RoutedEventArgs e)
+        private void DeletePhotoFromDraft(EquipmentDraft draft)
         {
-            if (sender is not FrameworkElement element || element.Tag is not EquipmentDraft draft)
-            {
-                return;
-            }
+            var confirmationResult = MessageBox.Show(
+                $"{GetPhotoDisplayName(draft)}의 사진을 삭제하시겠습니까?",
+                "사진 삭제",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
 
-            if (string.IsNullOrWhiteSpace(draft.PhotoPath) || !File.Exists(draft.PhotoPath))
-            {
-                MessageBox.Show(
-                    "등록된 사진이 없거나 파일을 찾을 수 없습니다.",
-                    "사진 보기",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            ShowPhotoPreviewWindow(draft);
-        }
-
-        private void DeletePhotoButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is not FrameworkElement element || element.Tag is not EquipmentDraft draft)
+            if (confirmationResult != MessageBoxResult.Yes)
             {
                 return;
             }
 
             draft.PhotoPath = string.Empty;
+        }
+
+        private void ShowPhotoManagementWindow(EquipmentDraft draft)
+        {
+            var preview = new Image
+            {
+                Source = EquipmentDraft.LoadPreview(draft.PhotoPath),
+                Stretch = Stretch.Uniform,
+                Margin = new Thickness(16)
+            };
+
+            var emptyText = new TextBlock
+            {
+                Text = "등록된 사진이 없습니다.",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brushes.DimGray
+            };
+
+            var previewHost = new Grid
+            {
+                MinHeight = 260,
+                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248))
+            };
+            previewHost.Children.Add(preview);
+            previewHost.Children.Add(emptyText);
+
+            void RefreshPreview()
+            {
+                preview.Source = EquipmentDraft.LoadPreview(draft.PhotoPath);
+                emptyText.Visibility = preview.Source is null ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            var addButton = new Button
+            {
+                Width = 96,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "사진 추가"
+            };
+            addButton.Click += (_, _) =>
+            {
+                AddPhotoToDraft(draft);
+                RefreshPreview();
+            };
+
+            var deleteButton = new Button
+            {
+                Width = 96,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "사진 삭제"
+            };
+            deleteButton.SetBinding(UIElement.IsEnabledProperty, new Binding(nameof(EquipmentDraft.HasPhoto))
+            {
+                Source = draft
+            });
+            deleteButton.Click += (_, _) =>
+            {
+                DeletePhotoFromDraft(draft);
+                RefreshPreview();
+            };
+
+            var closeButton = new Button
+            {
+                Width = 80,
+                Content = "닫기",
+                IsCancel = true
+            };
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(16)
+            };
+            buttonPanel.Children.Add(addButton);
+            buttonPanel.Children.Add(deleteButton);
+            buttonPanel.Children.Add(closeButton);
+
+            var layout = new Grid();
+            layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            layout.Children.Add(previewHost);
+            Grid.SetRow(buttonPanel, 1);
+            layout.Children.Add(buttonPanel);
+
+            var photoWindow = new Window
+            {
+                Title = string.IsNullOrWhiteSpace(draft.Name) ? "장비 사진" : $"{draft.Name} 사진",
+                Width = 520,
+                Height = 420,
+                MinWidth = 420,
+                MinHeight = 320,
+                Background = Brushes.White,
+                Content = layout,
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            closeButton.Click += (_, _) => photoWindow.Close();
+
+            RefreshPreview();
+            photoWindow.ShowDialog();
         }
 
         private void ShowPhotoPreviewWindow(EquipmentDraft draft)
@@ -484,11 +563,12 @@ namespace UL_project
                 Margin = new Thickness(16)
             };
 
-            var pathText = new TextBlock
+            var equipmentNameText = new TextBlock
             {
-                Text = draft.PhotoPath,
+                Text = GetPhotoDisplayName(draft),
                 Margin = new Thickness(16, 0, 16, 16),
                 Foreground = Brushes.DimGray,
+                FontWeight = FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
 
@@ -496,8 +576,8 @@ namespace UL_project
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.Children.Add(image);
-            Grid.SetRow(pathText, 1);
-            layout.Children.Add(pathText);
+            Grid.SetRow(equipmentNameText, 1);
+            layout.Children.Add(equipmentNameText);
 
             var previewWindow = new Window
             {
@@ -513,6 +593,50 @@ namespace UL_project
             };
 
             previewWindow.ShowDialog();
+        }
+
+        private static string GetPhotoDisplayName(EquipmentDraft draft)
+        {
+            if (!string.IsNullOrWhiteSpace(draft.Name))
+            {
+                return draft.Name.Trim();
+            }
+
+            return "이름 없는 장비";
+        }
+
+        private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingSelectAllCheckBox)
+            {
+                return;
+            }
+
+            if (_selectAllCheckBox?.IsChecked == true)
+            {
+                _equipmentGrid.SelectedItems.Clear();
+                foreach (var item in _equipmentItems)
+                {
+                    _equipmentGrid.SelectedItems.Add(item);
+                }
+
+                if (_equipmentItems.Count > 0)
+                {
+                    _equipmentGrid.CurrentItem = _equipmentItems[0];
+                }
+            }
+            else
+            {
+                _equipmentGrid.SelectedItems.Clear();
+            }
+
+            UpdateSelectAllCheckBox();
+            e.Handled = true;
+        }
+
+        private void EquipmentGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateSelectAllCheckBox();
         }
 
         private void EquipmentGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -697,6 +821,17 @@ namespace UL_project
                 return;
             }
 
+            var confirmationResult = MessageBox.Show(
+                $"선택한 장비 {selectedRows.Count}개를 삭제하시겠습니까?",
+                "장비 삭제",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirmationResult != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
             foreach (var selectedRow in selectedRows)
             {
                 _equipmentItems.Remove(selectedRow);
@@ -708,6 +843,7 @@ namespace UL_project
         private void EquipmentItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             RefreshEquipmentNumbers();
+            UpdateSelectAllCheckBox();
         }
 
         private void RefreshEquipmentNumbers()
@@ -839,12 +975,34 @@ namespace UL_project
         private void UpdateEquipmentCount()
         {
             _equipmentCountText.Text = $"장비: {_equipmentItems.Count}/{MaxEquipmentCount}";
+            UpdateSelectAllCheckBox();
+        }
+
+        private void UpdateSelectAllCheckBox()
+        {
+            if (_selectAllCheckBox is null)
+            {
+                return;
+            }
+
+            _isUpdatingSelectAllCheckBox = true;
+            var itemCount = _equipmentItems.Count;
+            _selectAllCheckBox.IsEnabled = itemCount > 0;
+            _selectAllCheckBox.IsChecked = itemCount == 0
+                ? false
+                : _equipmentGrid.SelectedItems.Count == itemCount
+                    ? true
+                    : _equipmentGrid.SelectedItems.Count == 0
+                        ? false
+                        : null;
+            _isUpdatingSelectAllCheckBox = false;
         }
 
         private sealed class EquipmentDraft : INotifyPropertyChanged
         {
             private string _displayNumber = string.Empty;
             private string _name = string.Empty;
+            private string _equipmentType = DefaultEquipmentType;
             private string _ulNumber = string.Empty;
             private string _globalNumber = string.Empty;
             private string _notes = string.Empty;
@@ -863,16 +1021,34 @@ namespace UL_project
                 set => SetField(ref _name, value);
             }
 
+            public string EquipmentType
+            {
+                get => string.IsNullOrWhiteSpace(_equipmentType) ? DefaultEquipmentType : _equipmentType;
+                set
+                {
+                    if (!SetField(ref _equipmentType, string.IsNullOrWhiteSpace(value) ? DefaultEquipmentType : value))
+                    {
+                        return;
+                    }
+
+                    if (IsSecondaryEquipment)
+                    {
+                        UlNumber = string.Empty;
+                        GlobalNumber = string.Empty;
+                    }
+                }
+            }
+
             public string UlNumber
             {
                 get => _ulNumber;
-                set => SetField(ref _ulNumber, value);
+                set => SetField(ref _ulNumber, IsSecondaryEquipment ? string.Empty : value);
             }
 
             public string GlobalNumber
             {
                 get => _globalNumber;
-                set => SetField(ref _globalNumber, value);
+                set => SetField(ref _globalNumber, IsSecondaryEquipment ? string.Empty : value);
             }
 
             public string Notes
@@ -892,10 +1068,15 @@ namespace UL_project
                     }
 
                     OnPropertyChanged(nameof(HasPhoto));
+                    OnPropertyChanged(nameof(PhotoButtonText));
                 }
             }
 
             public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoPath) && File.Exists(PhotoPath);
+
+            public string PhotoButtonText => HasPhoto ? "있음" : "+";
+
+            private bool IsSecondaryEquipment => EquipmentType == SecondaryEquipmentType;
 
             public bool IsEmpty =>
                 string.IsNullOrWhiteSpace(Name) &&
@@ -909,8 +1090,9 @@ namespace UL_project
                 return new EquipmentInfo
                 {
                     Name = Name.Trim(),
-                    UlNumber = UlNumber.Trim(),
-                    GlobalNumber = GlobalNumber.Trim(),
+                    EquipmentType = EquipmentType.Trim(),
+                    UlNumber = IsSecondaryEquipment ? string.Empty : UlNumber.Trim(),
+                    GlobalNumber = IsSecondaryEquipment ? string.Empty : GlobalNumber.Trim(),
                     Notes = Notes.Trim(),
                     PhotoPath = PhotoPath.Trim()
                 };
@@ -921,6 +1103,7 @@ namespace UL_project
                 return new EquipmentDraft
                 {
                     Name = equipment.Name,
+                    EquipmentType = equipment.EquipmentType,
                     UlNumber = equipment.UlNumber,
                     GlobalNumber = equipment.GlobalNumber,
                     Notes = equipment.Notes,
@@ -933,6 +1116,7 @@ namespace UL_project
                 return new EquipmentDraft
                 {
                     Name = Name,
+                    EquipmentType = EquipmentType,
                     UlNumber = UlNumber,
                     GlobalNumber = GlobalNumber,
                     Notes = Notes,

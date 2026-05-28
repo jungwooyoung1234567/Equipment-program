@@ -49,7 +49,7 @@ namespace UL_project
             }
 
             var confirmationResult = MessageBox.Show(
-                $"{_mapNames[_activeMapIndex]} 맵을 삭제할까요? 이 맵의 모든 기구가 함께 제거됩니다.",
+                $"{_mapNames[_activeMapIndex]} 맵을 삭제하시겠습니까?\n이 맵의 모든 기구가 함께 제거됩니다.",
                 "맵 삭제",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
