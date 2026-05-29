@@ -1,5 +1,14 @@
+using System.Collections.Generic;
+
 namespace UL_project
 {
+    internal sealed class EquipmentPhotoInfo
+    {
+        public string Path { get; set; } = string.Empty;
+
+        public int RotationDegrees { get; set; }
+    }
+
     internal sealed class EquipmentInfo
     {
         public string Name { get; set; } = string.Empty;
@@ -13,5 +22,9 @@ namespace UL_project
         public string Notes { get; set; } = string.Empty;
 
         public string PhotoPath { get; set; } = string.Empty;
+
+        public int PhotoRotationDegrees { get; set; }
+
+        public List<EquipmentPhotoInfo> Photos { get; set; } = [];
     }
 }

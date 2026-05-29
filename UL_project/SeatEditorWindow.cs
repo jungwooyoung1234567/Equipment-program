@@ -11,6 +11,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 
 namespace UL_project
@@ -426,7 +427,7 @@ namespace UL_project
                 Title = "사진 선택",
                 Filter = "이미지 파일|*.png;*.jpg;*.jpeg;*.bmp;*.gif|모든 파일|*.*",
                 CheckFileExists = true,
-                Multiselect = false
+                Multiselect = true
             };
 
             if (dialog.ShowDialog(this) != true)
@@ -434,10 +435,10 @@ namespace UL_project
                 return;
             }
 
-            draft.PhotoPath = dialog.FileName;
+            draft.AddPhotos(dialog.FileNames);
         }
 
-        private void DeletePhotoFromDraft(EquipmentDraft draft)
+        private void DeletePhotoFromDraft(EquipmentDraft draft, int photoIndex)
         {
             var confirmationResult = MessageBox.Show(
                 $"{GetPhotoDisplayName(draft)}의 사진을 삭제하시겠습니까?",
@@ -450,16 +451,18 @@ namespace UL_project
                 return;
             }
 
-            draft.PhotoPath = string.Empty;
+            draft.RemovePhotoAt(photoIndex);
         }
 
         private void ShowPhotoManagementWindow(EquipmentDraft draft)
         {
+            var currentPhotoIndex = draft.HasPhoto ? 0 : -1;
+            var zoomScale = 1.0;
             var preview = new Image
             {
-                Source = EquipmentDraft.LoadPreview(draft.PhotoPath),
                 Stretch = Stretch.Uniform,
-                Margin = new Thickness(16)
+                Margin = new Thickness(16),
+                RenderTransformOrigin = new Point(0.5, 0.5)
             };
 
             var emptyText = new TextBlock
@@ -470,18 +473,59 @@ namespace UL_project
                 Foreground = Brushes.DimGray
             };
 
+            var photoCountText = new TextBlock
+            {
+                Margin = new Thickness(16, 10, 16, 0),
+                Foreground = Brushes.DimGray,
+                FontWeight = FontWeights.SemiBold
+            };
+
+            var zoomText = new TextBlock
+            {
+                MinWidth = 56,
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                Foreground = Brushes.DimGray,
+                FontWeight = FontWeights.SemiBold
+            };
+
             var previewHost = new Grid
             {
                 MinHeight = 260,
-                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248))
+                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248)),
+                ClipToBounds = true
             };
             previewHost.Children.Add(preview);
-            previewHost.Children.Add(emptyText);
+
+            var previewFrame = new Grid();
+            previewFrame.Children.Add(previewHost);
+            previewFrame.Children.Add(emptyText);
+
+            void ApplyCurrentTransform(int rotationDegrees)
+            {
+                ApplyPhotoTransform(preview, rotationDegrees, zoomScale);
+                zoomText.Text = $"{zoomScale:P0}";
+            }
 
             void RefreshPreview()
             {
-                preview.Source = EquipmentDraft.LoadPreview(draft.PhotoPath);
+                if (!draft.HasPhoto)
+                {
+                    currentPhotoIndex = -1;
+                    preview.Source = null;
+                    ApplyCurrentTransform(0);
+                    emptyText.Visibility = Visibility.Visible;
+                    photoCountText.Text = "사진 0장";
+                    return;
+                }
+
+                currentPhotoIndex = System.Math.Clamp(currentPhotoIndex, 0, draft.PhotoCount - 1);
+                var photo = draft.GetPhotoAt(currentPhotoIndex);
+                preview.Source = EquipmentDraft.LoadPreview(photo.Path);
+                ApplyCurrentTransform(photo.RotationDegrees);
                 emptyText.Visibility = preview.Source is null ? Visibility.Visible : Visibility.Collapsed;
+                photoCountText.Text = $"{currentPhotoIndex + 1} / {draft.PhotoCount}";
             }
 
             var addButton = new Button
@@ -492,7 +536,83 @@ namespace UL_project
             };
             addButton.Click += (_, _) =>
             {
+                var previousCount = draft.PhotoCount;
                 AddPhotoToDraft(draft);
+                if (draft.PhotoCount > previousCount)
+                {
+                    currentPhotoIndex = previousCount;
+                }
+
+                RefreshPreview();
+            };
+
+            var previousButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "이전"
+            };
+            previousButton.Click += (_, _) =>
+            {
+                if (!draft.HasPhoto)
+                {
+                    return;
+                }
+
+                currentPhotoIndex = currentPhotoIndex <= 0 ? draft.PhotoCount - 1 : currentPhotoIndex - 1;
+                RefreshPreview();
+            };
+
+            var nextButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "다음"
+            };
+            nextButton.Click += (_, _) =>
+            {
+                if (!draft.HasPhoto)
+                {
+                    return;
+                }
+
+                currentPhotoIndex = currentPhotoIndex >= draft.PhotoCount - 1 ? 0 : currentPhotoIndex + 1;
+                RefreshPreview();
+            };
+
+            var zoomOutButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "축소"
+            };
+            zoomOutButton.Click += (_, _) =>
+            {
+                zoomScale = System.Math.Max(0.25, zoomScale - 0.25);
+                RefreshPreview();
+            };
+
+            var zoomInButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "확대"
+            };
+            zoomInButton.Click += (_, _) =>
+            {
+                zoomScale = System.Math.Min(4.0, zoomScale + 0.25);
+                RefreshPreview();
+            };
+
+            var zoomResetButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "100%"
+            };
+            zoomResetButton.Click += (_, _) =>
+            {
+                zoomScale = 1.0;
                 RefreshPreview();
             };
 
@@ -508,7 +628,23 @@ namespace UL_project
             });
             deleteButton.Click += (_, _) =>
             {
-                DeletePhotoFromDraft(draft);
+                DeletePhotoFromDraft(draft, currentPhotoIndex);
+                RefreshPreview();
+            };
+
+            var rotateButton = new Button
+            {
+                Width = 96,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "90도 회전"
+            };
+            rotateButton.SetBinding(UIElement.IsEnabledProperty, new Binding(nameof(EquipmentDraft.HasPhoto))
+            {
+                Source = draft
+            });
+            rotateButton.Click += (_, _) =>
+            {
+                draft.RotatePhotoClockwise(currentPhotoIndex);
                 RefreshPreview();
             };
 
@@ -519,30 +655,39 @@ namespace UL_project
                 IsCancel = true
             };
 
-            var buttonPanel = new StackPanel
+            var buttonPanel = new WrapPanel
             {
-                Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(16)
             };
             buttonPanel.Children.Add(addButton);
+            buttonPanel.Children.Add(previousButton);
+            buttonPanel.Children.Add(nextButton);
+            buttonPanel.Children.Add(rotateButton);
+            buttonPanel.Children.Add(zoomOutButton);
+            buttonPanel.Children.Add(zoomInButton);
+            buttonPanel.Children.Add(zoomResetButton);
+            buttonPanel.Children.Add(zoomText);
             buttonPanel.Children.Add(deleteButton);
             buttonPanel.Children.Add(closeButton);
 
             var layout = new Grid();
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            layout.Children.Add(previewHost);
-            Grid.SetRow(buttonPanel, 1);
+            layout.Children.Add(photoCountText);
+            Grid.SetRow(previewFrame, 1);
+            layout.Children.Add(previewFrame);
+            Grid.SetRow(buttonPanel, 2);
             layout.Children.Add(buttonPanel);
 
             var photoWindow = new Window
             {
                 Title = string.IsNullOrWhiteSpace(draft.Name) ? "장비 사진" : $"{draft.Name} 사진",
-                Width = 520,
-                Height = 420,
-                MinWidth = 420,
-                MinHeight = 320,
+                Width = 860,
+                Height = 560,
+                MinWidth = 760,
+                MinHeight = 460,
                 Background = Brushes.White,
                 Content = layout,
                 Owner = this,
@@ -556,36 +701,124 @@ namespace UL_project
 
         private void ShowPhotoPreviewWindow(EquipmentDraft draft)
         {
+            if (!draft.HasPhoto)
+            {
+                return;
+            }
+
+            var photo = draft.GetPhotoAt(0);
+            var zoomScale = 1.0;
             var image = new Image
             {
-                Source = EquipmentDraft.LoadPreview(draft.PhotoPath),
+                Source = EquipmentDraft.LoadPreview(photo.Path),
                 Stretch = Stretch.Uniform,
-                Margin = new Thickness(16)
+                Margin = new Thickness(16),
+                RenderTransformOrigin = new Point(0.5, 0.5)
+            };
+            ApplyPhotoTransform(image, photo.RotationDegrees, zoomScale);
+
+            var zoomText = new TextBlock
+            {
+                MinWidth = 56,
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                Foreground = Brushes.DimGray,
+                FontWeight = FontWeights.SemiBold,
+                Text = $"{zoomScale:P0}"
             };
 
             var equipmentNameText = new TextBlock
             {
                 Text = GetPhotoDisplayName(draft),
-                Margin = new Thickness(16, 0, 16, 16),
+                Margin = new Thickness(0, 0, 16, 0),
                 Foreground = Brushes.DimGray,
                 FontWeight = FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
 
+            void RefreshPreviewZoom()
+            {
+                ApplyPhotoTransform(image, photo.RotationDegrees, zoomScale);
+                zoomText.Text = $"{zoomScale:P0}";
+            }
+
+            var zoomOutButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "축소"
+            };
+            zoomOutButton.Click += (_, _) =>
+            {
+                zoomScale = System.Math.Max(0.25, zoomScale - 0.25);
+                RefreshPreviewZoom();
+            };
+
+            var zoomInButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "확대"
+            };
+            zoomInButton.Click += (_, _) =>
+            {
+                zoomScale = System.Math.Min(4.0, zoomScale + 0.25);
+                RefreshPreviewZoom();
+            };
+
+            var zoomResetButton = new Button
+            {
+                Width = 72,
+                Margin = new Thickness(0, 0, 8, 0),
+                Content = "100%"
+            };
+            zoomResetButton.Click += (_, _) =>
+            {
+                zoomScale = 1.0;
+                RefreshPreviewZoom();
+            };
+
+            var imageHost = new Grid
+            {
+                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248)),
+                ClipToBounds = true
+            };
+            imageHost.Children.Add(image);
+
+            var footerPanel = new DockPanel
+            {
+                Margin = new Thickness(16)
+            };
+            DockPanel.SetDock(equipmentNameText, Dock.Left);
+            footerPanel.Children.Add(equipmentNameText);
+
+            var zoomPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            zoomPanel.Children.Add(zoomOutButton);
+            zoomPanel.Children.Add(zoomInButton);
+            zoomPanel.Children.Add(zoomResetButton);
+            zoomPanel.Children.Add(zoomText);
+            DockPanel.SetDock(zoomPanel, Dock.Right);
+            footerPanel.Children.Add(zoomPanel);
+
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            layout.Children.Add(image);
-            Grid.SetRow(equipmentNameText, 1);
-            layout.Children.Add(equipmentNameText);
+            layout.Children.Add(imageHost);
+            Grid.SetRow(footerPanel, 1);
+            layout.Children.Add(footerPanel);
 
             var previewWindow = new Window
             {
                 Title = string.IsNullOrWhiteSpace(draft.Name) ? "장비 사진 보기" : $"{draft.Name} 사진 보기",
-                Width = 720,
-                Height = 560,
-                MinWidth = 420,
-                MinHeight = 320,
+                Width = 860,
+                Height = 640,
+                MinWidth = 760,
+                MinHeight = 480,
                 Background = Brushes.White,
                 Content = layout,
                 Owner = this,
@@ -593,6 +826,30 @@ namespace UL_project
             };
 
             previewWindow.ShowDialog();
+        }
+
+        private static void ApplyPhotoTransform(Image image, int rotationDegrees, double zoomScale)
+        {
+            var normalizedDegrees = ((rotationDegrees % 360) + 360) % 360;
+            var normalizedZoom = System.Math.Clamp(zoomScale, 0.25, 4.0);
+
+            if (normalizedDegrees == 0 && normalizedZoom == 1.0)
+            {
+                image.LayoutTransform = Transform.Identity;
+                image.RenderTransform = Transform.Identity;
+                return;
+            }
+
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new ScaleTransform(normalizedZoom, normalizedZoom));
+
+            if (normalizedDegrees != 0)
+            {
+                transformGroup.Children.Add(new RotateTransform(normalizedDegrees));
+            }
+
+            image.LayoutTransform = Transform.Identity;
+            image.RenderTransform = transformGroup;
         }
 
         private static string GetPhotoDisplayName(EquipmentDraft draft)
@@ -1006,7 +1263,7 @@ namespace UL_project
             private string _ulNumber = string.Empty;
             private string _globalNumber = string.Empty;
             private string _notes = string.Empty;
-            private string _photoPath = string.Empty;
+            private readonly List<EquipmentPhotoDraft> _photos = new();
             public event PropertyChangedEventHandler? PropertyChanged;
 
             public string DisplayNumber
@@ -1059,22 +1316,42 @@ namespace UL_project
 
             public string PhotoPath
             {
-                get => _photoPath;
+                get => _photos.Count == 0 ? string.Empty : _photos[0].Path;
                 set
                 {
-                    if (!SetField(ref _photoPath, value))
+                    _photos.Clear();
+                    if (!string.IsNullOrWhiteSpace(value))
                     {
-                        return;
+                        _photos.Add(new EquipmentPhotoDraft(value, PhotoRotationDegrees));
                     }
 
                     OnPropertyChanged(nameof(HasPhoto));
                     OnPropertyChanged(nameof(PhotoButtonText));
+                    OnPropertyChanged(nameof(PhotoCount));
                 }
             }
 
-            public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoPath) && File.Exists(PhotoPath);
+            public int PhotoRotationDegrees
+            {
+                get => _photos.Count == 0 ? 0 : _photos[0].RotationDegrees;
+                set
+                {
+                    var normalizedDegrees = ((value % 360) + 360) % 360;
+                    if (_photos.Count == 0)
+                    {
+                        return;
+                    }
 
-            public string PhotoButtonText => HasPhoto ? "있음" : "+";
+                    _photos[0].RotationDegrees = normalizedDegrees;
+                    OnPropertyChanged();
+                }
+            }
+
+            public bool HasPhoto => PhotoCount > 0;
+
+            public int PhotoCount => _photos.Count;
+
+            public string PhotoButtonText => PhotoCount > 0 ? $"{PhotoCount}장" : "+";
 
             private bool IsSecondaryEquipment => EquipmentType == SecondaryEquipmentType;
 
@@ -1083,10 +1360,20 @@ namespace UL_project
                 string.IsNullOrWhiteSpace(UlNumber) &&
                 string.IsNullOrWhiteSpace(GlobalNumber) &&
                 string.IsNullOrWhiteSpace(Notes) &&
-                string.IsNullOrWhiteSpace(PhotoPath);
+                PhotoCount == 0;
 
             public EquipmentInfo ToEquipmentInfo()
             {
+                var photos = _photos
+                    .Where(photo => !string.IsNullOrWhiteSpace(photo.Path))
+                    .Select(photo => new EquipmentPhotoInfo
+                    {
+                        Path = photo.Path.Trim(),
+                        RotationDegrees = photo.RotationDegrees
+                    })
+                    .ToList();
+                var primaryPhoto = photos.FirstOrDefault();
+
                 return new EquipmentInfo
                 {
                     Name = Name.Trim(),
@@ -1094,34 +1381,125 @@ namespace UL_project
                     UlNumber = IsSecondaryEquipment ? string.Empty : UlNumber.Trim(),
                     GlobalNumber = IsSecondaryEquipment ? string.Empty : GlobalNumber.Trim(),
                     Notes = Notes.Trim(),
-                    PhotoPath = PhotoPath.Trim()
+                    PhotoPath = primaryPhoto?.Path ?? string.Empty,
+                    PhotoRotationDegrees = primaryPhoto?.RotationDegrees ?? 0,
+                    Photos = photos
                 };
             }
 
             public static EquipmentDraft FromEquipmentInfo(EquipmentInfo equipment)
             {
-                return new EquipmentDraft
+                var draft = new EquipmentDraft
                 {
                     Name = equipment.Name,
                     EquipmentType = equipment.EquipmentType,
                     UlNumber = equipment.UlNumber,
                     GlobalNumber = equipment.GlobalNumber,
-                    Notes = equipment.Notes,
-                    PhotoPath = equipment.PhotoPath
+                    Notes = equipment.Notes
                 };
+
+                var savedPhotos = equipment.Photos ?? [];
+                var photos = savedPhotos.Count > 0
+                    ? savedPhotos
+                    : string.IsNullOrWhiteSpace(equipment.PhotoPath)
+                        ? []
+                        : [new EquipmentPhotoInfo
+                        {
+                            Path = equipment.PhotoPath,
+                            RotationDegrees = equipment.PhotoRotationDegrees
+                        }];
+
+                draft.AddPhotos(photos.Select(photo => photo.Path), notify: false);
+                for (var index = 0; index < photos.Count && index < draft._photos.Count; index++)
+                {
+                    draft._photos[index].RotationDegrees = photos[index].RotationDegrees;
+                }
+
+                draft.NotifyPhotoChanged();
+                return draft;
             }
 
             public EquipmentDraft Clone()
             {
-                return new EquipmentDraft
+                var clone = new EquipmentDraft
                 {
                     Name = Name,
                     EquipmentType = EquipmentType,
                     UlNumber = UlNumber,
                     GlobalNumber = GlobalNumber,
-                    Notes = Notes,
-                    PhotoPath = PhotoPath
+                    Notes = Notes
                 };
+
+                clone._photos.AddRange(_photos.Select(photo => photo.Clone()));
+                clone.NotifyPhotoChanged();
+                return clone;
+            }
+
+            public EquipmentPhotoDraft GetPhotoAt(int index)
+            {
+                return _photos[System.Math.Clamp(index, 0, _photos.Count - 1)];
+            }
+
+            public void AddPhotos(IEnumerable<string> paths, bool notify = true)
+            {
+                foreach (var path in paths.Where(path => !string.IsNullOrWhiteSpace(path)))
+                {
+                    _photos.Add(new EquipmentPhotoDraft(path, 0));
+                }
+
+                if (notify)
+                {
+                    NotifyPhotoChanged();
+                }
+            }
+
+            public void RemovePhotoAt(int index)
+            {
+                if (index < 0 || index >= _photos.Count)
+                {
+                    return;
+                }
+
+                _photos.RemoveAt(index);
+                NotifyPhotoChanged();
+            }
+
+            public void RotatePhotoClockwise(int index)
+            {
+                if (index < 0 || index >= _photos.Count)
+                {
+                    return;
+                }
+
+                _photos[index].RotationDegrees += 90;
+                NotifyPhotoChanged();
+            }
+
+            private void NotifyPhotoChanged()
+            {
+                OnPropertyChanged(nameof(PhotoPath));
+                OnPropertyChanged(nameof(PhotoRotationDegrees));
+                OnPropertyChanged(nameof(HasPhoto));
+                OnPropertyChanged(nameof(PhotoCount));
+                OnPropertyChanged(nameof(PhotoButtonText));
+            }
+
+            public sealed class EquipmentPhotoDraft
+            {
+                public EquipmentPhotoDraft(string path, int rotationDegrees)
+                {
+                    Path = path;
+                    RotationDegrees = rotationDegrees;
+                }
+
+                public string Path { get; }
+
+                public int RotationDegrees { get; set; }
+
+                public EquipmentPhotoDraft Clone()
+                {
+                    return new EquipmentPhotoDraft(Path, RotationDegrees);
+                }
             }
 
             public static ImageSource? LoadPreview(string path)
@@ -1133,13 +1511,24 @@ namespace UL_project
 
                 try
                 {
-                    var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                    var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.UriSource = new System.Uri(path, System.UriKind.Absolute);
                     bitmap.EndInit();
-                    bitmap.Freeze();
-                    return bitmap;
+
+                    try
+                    {
+                        var orientation = GetExifOrientation(bitmap.Metadata as BitmapMetadata);
+                        var correctedBitmap = ApplyExifOrientation(bitmap, orientation);
+                        correctedBitmap.Freeze();
+                        return correctedBitmap;
+                    }
+                    catch
+                    {
+                        bitmap.Freeze();
+                        return bitmap;
+                    }
                 }
                 catch
                 {
@@ -1147,7 +1536,65 @@ namespace UL_project
                 }
             }
 
+            private static ushort GetExifOrientation(BitmapMetadata? metadata)
+            {
+                if (metadata is null)
+                {
+                    return 1;
+                }
+
+                try
+                {
+                    return metadata.GetQuery("/app1/ifd/{ushort=274}") switch
+                    {
+                        ushort orientation => orientation,
+                        short orientation => (ushort)orientation,
+                        int orientation => (ushort)orientation,
+                        _ => 1
+                    };
+                }
+                catch
+                {
+                    return 1;
+                }
+            }
+
+            private static BitmapSource ApplyExifOrientation(BitmapSource source, ushort orientation)
+            {
+                var angle = orientation switch
+                {
+                    3 => 180,
+                    6 => 90,
+                    8 => 270,
+                    _ => 0
+                };
+
+                if (angle == 0)
+                {
+                    return source;
+                }
+
+                var rotatedBitmap = new TransformedBitmap();
+                rotatedBitmap.BeginInit();
+                rotatedBitmap.Source = source;
+                rotatedBitmap.Transform = new RotateTransform(angle);
+                rotatedBitmap.EndInit();
+                return rotatedBitmap;
+            }
+
             private bool SetField(ref string field, string value, [CallerMemberName] string propertyName = "")
+            {
+                if (field == value)
+                {
+                    return false;
+                }
+
+                field = value;
+                OnPropertyChanged(propertyName);
+                return true;
+            }
+
+            private bool SetField(ref int field, int value, [CallerMemberName] string propertyName = "")
             {
                 if (field == value)
                 {
